@@ -73,32 +73,52 @@ function _get($param, $defvalue = '')
         return safedata($_GET[$param]);
     }
 }
+try {
 
-require_once File::pathFixer('system/orm.php');
+    require_once File::pathFixer('system/orm.php');
 
-ORM::configure("mysql:host=$db_host;dbname=$db_name");
-ORM::configure('username', $db_user);
-ORM::configure('password', $db_password);
-ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'));
-ORM::configure('return_result_sets', true);
-if ($_app_stage != 'Live') {
-    ORM::configure('logging', true);
-}
+    ORM::configure("mysql:host=$db_host;dbname=$db_name");
+    ORM::configure('username', $db_user);
+    ORM::configure('password', $db_password);
+    ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'));
+    ORM::configure('return_result_sets', true);
+    if ($_app_stage != 'Live') {
+        ORM::configure('logging', true);
+    }
 
-$result = ORM::for_table('tbl_appconfig')->find_many();
-foreach ($result as $value) {
-    $config[$value['setting']] = $value['value'];
-}
+    $result = ORM::for_table('tbl_appconfig')->find_many();
+    foreach ($result as $value) {
+        $config[$value['setting']] = $value['value'];
+    }
 
-date_default_timezone_set($config['timezone']);
-$_c = $config;
+    date_default_timezone_set($config['timezone']);
+    $_c = $config;
 
-if ($config['radius_mode']) {
-    ORM::configure("mysql:host=$radius_host;dbname=$radius_name", null, 'radius');
-    ORM::configure('username', $radius_user, 'radius');
-    ORM::configure('password', $radius_password, 'radius');
-    ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'), 'radius');
-    ORM::configure('return_result_sets', true, 'radius');
+    // check if proxy setup in database
+    if (empty($http_proxy) && !empty($config['http_proxy'])) {
+        $http_proxy = $config['http_proxy'];
+        if (empty($http_proxyauth) && !empty($config['http_proxyauth'])) {
+            $http_proxyauth = $config['http_proxyauth'];
+        }
+    }
+    if ($config['radius_mode']) {
+        ORM::configure("mysql:host=$radius_host;dbname=$radius_name", null, 'radius');
+        ORM::configure('username', $radius_user, 'radius');
+        ORM::configure('password', $radius_password, 'radius');
+        ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'), 'radius');
+        ORM::configure('return_result_sets', true, 'radius');
+    }
+} catch (Exception $e) {
+    $ui = new Smarty();
+    $ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'default' => File::pathFixer('ui/ui/')]);
+    $ui->assign('_url', APP_URL . '/index.php?_route=');
+    $ui->setCompileDir(File::pathFixer('ui/compiled/'));
+    $ui->setConfigDir(File::pathFixer('ui/conf/'));
+    $ui->setCacheDir(File::pathFixer('ui/cache/'));
+    $ui->assign("error_title", "PHPNuxBill Crash");
+    $ui->assign("error_message", $e->getMessage());
+    $ui->display('router-error.tpl');
+    die();
 }
 
 function _notify($msg, $type = 'e')
@@ -283,34 +303,42 @@ $handler = $routes[0];
 if ($handler == '') {
     $handler = 'default';
 }
-$sys_render = File::pathFixer('system/controllers/' . $handler . '.php');
-if (file_exists($sys_render)) {
-    $menus = array();
-    // "name" => $name,
-    // "admin" => $admin,
-    // "position" => $position,
-    // "function" => $function
-    $ui->assign('_system_menu', $routes[0]);
-    foreach ($menu_registered as $menu) {
-        if ($menu['admin'] && _admin(false)) {
-            $menus[$menu['position']] .= '<li' . (($routes[1] == $menu['function']) ? ' class="active"' : '') . '><a href="' . U . 'plugin/' . $menu['function'] . '">';
-            if (!empty($menu['icon'])) {
-                $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
+try {
+
+    $sys_render = File::pathFixer('system/controllers/' . $handler . '.php');
+    if (file_exists($sys_render)) {
+        $menus = array();
+        // "name" => $name,
+        // "admin" => $admin,
+        // "position" => $position,
+        // "function" => $function
+        $ui->assign('_system_menu', $routes[0]);
+        foreach ($menu_registered as $menu) {
+            if ($menu['admin'] && _admin(false)) {
+                $menus[$menu['position']] .= '<li' . (($routes[1] == $menu['function']) ? ' class="active"' : '') . '><a href="' . U . 'plugin/' . $menu['function'] . '">';
+                if (!empty($menu['icon'])) {
+                    $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
+                }
+                $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
+            } else if (!$menu['admin'] && _auth(false)) {
+                $menus[$menu['position']] .= '<li' . (($routes[1] == $menu['function']) ? ' class="active"' : '') . '><a href="' . U . 'plugin/' . $menu['function'] . '">';
+                if (!empty($menu['icon'])) {
+                    $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
+                }
+                $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
             }
-            $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
-        } else if (!$menu['admin'] && _auth(false)) {
-            $menus[$menu['position']] .= '<li' . (($routes[1] == $menu['function']) ? ' class="active"' : '') . '><a href="' . U . 'plugin/' . $menu['function'] . '">';
-            if (!empty($menu['icon'])) {
-                $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
-            }
-            $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
         }
+        foreach ($menus as $k => $v) {
+            $ui->assign('_MENU_' . $k, $v);
+        }
+        unset($menus, $menu_registered);
+        include($sys_render);
+    } else {
+        r2(U . 'dashboard', 'e', 'not found');
     }
-    foreach ($menus as $k => $v) {
-        $ui->assign('_MENU_' . $k, $v);
-    }
-    unset($menus, $menu_registered);
-    include($sys_render);
-} else {
-    r2(U . 'dashboard', 'e', 'not found');
+} catch (Exception $e) {
+    $ui->assign("error_title", "PHPNuxBill Crash");
+    $ui->assign("error_message", $e->getMessage());
+    $ui->display('router-error.tpl');
+    die();
 }
