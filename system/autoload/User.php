@@ -1,8 +1,10 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
+
 
 class User
 {
@@ -20,7 +22,7 @@ class User
     public static function _billing()
     {
         $id = $_SESSION['uid'];
-        $d = ORM::for_table('tbl_user_recharges')->where('customer_id', $id)->find_one();
+        $d = ORM::for_table('tbl_user_recharges')->where('customer_id', $id)->find_many();
         return $d;
     }
 }

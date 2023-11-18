@@ -8,7 +8,7 @@
                 <div class="box-header">
                     <h3 class="box-title">{Lang::T('Unpaid Order')}</h3>
                 </div>
-                <table class="table table-condensed table-bordered table-striped table-hover">
+                <table class="table table-condensed table-bordered table-striped table-hover" style="margin-bottom: 0px;">
                     <tbody>
                         <tr>
                             <td>{Lang::T('expired')}</td>
@@ -62,16 +62,17 @@
             <div class="box-header">
                 <h3 class="box-title">{$_L['Account_Information']}</h3>
             </div>
-            <table class="table table-bordered table-striped table-bordered table-hover">
+            <table class="table table-bordered table-striped table-bordered table-hover mb-0"
+                style="margin-bottom: 0px;">
                 <tr>
                     <td class="small text-success text-uppercase text-normal">{$_L['Username']}</td>
                     <td class="small mb15">{$_user['username']}</td>
                 </tr>
                 <tr>
                     <td class="small text-success text-uppercase text-normal">{$_L['Password']}</td>
-                    <td class="small mb15"><input type="text" value="{$_user['password']}"
-                            style="background-color: black; color:black; width:100%; border: 0px;"
-                            onclick="this.select()"></td>
+                    <td class="small mb15"><input type="password" value="{$_user['password']}"
+                            style="width:100%; border: 0px;" onmouseleave="this.type = 'password'"
+                            onmouseenter="this.type = 'text'" onclick="this.select()"></td>
                 </tr>
                 {if $_c['enable_balance'] == 'yes'}
                     <tr>
@@ -88,66 +89,95 @@
                         </td>
                     </tr>
                 {/if}
-                <tr>
-                    <td class="small text-primary text-uppercase text-normal">{$_L['Plan_Name']}</td>
-                    <td class="small mb15">{$_bill['namebp']}</td>
-                </tr>
-                <tr>
-                    <td class="small text-info text-uppercase text-normal">{$_L['Created_On']}</td>
-                    <td class="small mb15">
-                        {if $_bill['time'] ne ''}{Lang::dateAndTimeFormat($_bill['recharged_on'],$_bill['recharged_time'])}
-                        {/if}&nbsp;</td>
-                </tr>
-                <tr>
-                    <td class="small text-danger text-uppercase text-normal">{$_L['Expires_On']}</td>
-                    <td class="small mb15">
-                        {if $_bill['time'] ne ''}{Lang::dateAndTimeFormat($_bill['expiration'],$_bill['time'])}{/if}&nbsp;
-                    </td>
-                </tr>
-                {if $nux_ip}
-                    <tr>
-                        <td class="small text-primary text-uppercase text-normal">{Lang::T('Current IP')}</td>
-                        <td class="small mb15">{$nux_ip}</td>
-                    </tr>
-                {/if}
-                {if $nux_mac}
-                    <tr>
-                        <td class="small text-primary text-uppercase text-normal">{Lang::T('Current MAC')}</td>
-                        <td class="small mb15">{$nux_mac}</td>
-                    </tr>
-                {/if}
-                {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on'}
-                    <tr>
-                        <td class="small text-primary text-uppercase text-normal">{Lang::T('Login Status')}</td>
-                        <td class="small mb15" id="login_status">
-                            Loading....
-                        </td>
-                    </tr>
-                {/if}
             </table>
-            {if $_c['disable_voucher'] == 'yes'}
-                <div class="box-footer">
-                    {if $_c['payment_gateway'] != 'none' or $_c['payment_gateway'] == '' }
-                        <a href="{$_url}order/package" class="btn btn-primary btn-block">
-                            <i class="ion ion-ios-cart"></i>
-                            {Lang::T('Order Package')}
-                        </a>
+            {if $_bills}
+                {foreach $_bills as $_bill}
+                    {if $_bill['routers'] != 'radius'}
+                        <div class="box-header">
+                            <h3 class="box-title">{$_bill['routers']}</h3>
+                        </div>
+                    {else}
+                        <div class="box-header">
+                            <h3 class="box-title">{if $_c['radius_plan']==''}Radius Plan{else}{$_c['radius_plan']}{/if}</h3>
+                        </div>
                     {/if}
-                </div>
+                    <table class="table table-bordered table-striped table-bordered table-hover" style="margin-bottom: 0px;">
+                        <tr>
+                            <td class="small text-primary text-uppercase text-normal">{$_L['Plan_Name']}</td>
+                            <td class="small mb15">
+                                {$_bill['namebp']}
+                                {if $_bill['status'] == 'on'}
+                                    <a class="label label-danger pull-right" href="{$_url}home&deactivate={$_bill['id']}"
+                                        onclick="return confirm('{Lang::T('Deactivate')}?')">{Lang::T('Deactivate')}</a>
+                                {else}
+                                    <a class="label label-warning pull-right" href="{$_url}order/package">{Lang::T('expired')}</a>
+                                {/if}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="small text-info text-uppercase text-normal">{$_L['Created_On']}</td>
+                            <td class="small mb15">
+                                {if $_bill['time'] ne ''}{Lang::dateAndTimeFormat($_bill['recharged_on'],$_bill['recharged_time'])}
+                                {/if}&nbsp;</td>
+                        </tr>
+                        <tr>
+                            <td class="small text-danger text-uppercase text-normal">{$_L['Expires_On']}</td>
+                            <td class="small mb15 text-danger">
+                                {if $_bill['time'] ne ''}{Lang::dateAndTimeFormat($_bill['expiration'],$_bill['time'])}{/if}&nbsp;
+                                <a class="label label-primary pull-right" href="{$_url}home&recharge={$_bill['id']}"
+                                    onclick="return confirm('{Lang::T('Recharge')}?')">{Lang::T('Recharge')}</a>
+                            </td>
+                        </tr>
+                        {if $nux_ip}
+                            <tr>
+                                <td class="small text-primary text-uppercase text-normal">{Lang::T('Current IP')}</td>
+                                <td class="small mb15">{$nux_ip}</td>
+                            </tr>
+                        {/if}
+                        {if $nux_mac}
+                            <tr>
+                                <td class="small text-primary text-uppercase text-normal">{Lang::T('Current MAC')}</td>
+                                <td class="small mb15">{$nux_mac}</td>
+                            </tr>
+                        {/if}
+                        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on' && $_bill['routers'] != 'radius'}
+                            <tr>
+                                <td class="small text-primary text-uppercase text-normal">{Lang::T('Login Status')}</td>
+                                <td class="small mb15" id="login_status_{$_bill['id']}">
+                                    <img src="ui/ui/images/loading.gif">
+                                </td>
+                            </tr>
+                        {/if}
+                    </table>
+                {/foreach}
             {/if}
         </div>
-        {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on'}
-            <script>
-                setTimeout(() => {
-                    $.ajax({
-                        url: "index.php?_route=autoload_user/isLogin",
-                        cache: false,
-                        success: function(msg) {
-                            $("#login_status").html(msg);
-                        }
-                    });
-                }, 2000);
-            </script>
+        {if $_c['disable_voucher'] == 'yes'}
+            <div class="box-footer">
+                {if $_c['payment_gateway'] != 'none' or $_c['payment_gateway'] == '' }
+                    <a href="{$_url}order/package" class="btn btn-primary btn-block">
+                        <i class="ion ion-ios-cart"></i>
+                        {Lang::T('Order Package')}
+                    </a>
+                {/if}
+            </div>
+        {/if}
+        {if $_bills}
+            {foreach $_bills as $_bill}
+                {if $_bill['type'] == 'Hotspot' && $_bill['status'] == 'on'}
+                    <script>
+                        setTimeout(() => {
+                            $.ajax({
+                                url: "index.php?_route=autoload_user/isLogin/{$_bill['id']}",
+                                cache: false,
+                                success: function(msg) {
+                                    $("#login_status_{$_bill['id']}").html(msg);
+                                }
+                            });
+                        }, 2000);
+                    </script>
+                {/if}
+            {/foreach}
         {/if}
         {if $_c['enable_balance'] == 'yes' && $_c['allow_balance_transfer'] == 'yes'}
             <div class="box box-primary box-solid mb30">
@@ -167,7 +197,8 @@
                             </div>
                             <div class="form-group col-sm-2" align="center">
                                 <button class="btn btn-success btn-block" id="sendBtn" type="submit" name="send"
-                                    onclick="return confirm('{Lang::T("Are You Sure?")}')" value="balance"><i class="glyphicon glyphicon-send"></i></button>
+                                    onclick="return confirm('{Lang::T("Are You Sure?")}')" value="balance"><i
+                                        class="glyphicon glyphicon-send"></i></button>
                             </div>
                         </div>
                     </form>
@@ -195,7 +226,8 @@
                             </div>
                             <div class="form-group col-sm-2" align="center">
                                 <button class="btn btn-success btn-block" id="sendBtn" type="submit" name="send"
-                                    onclick="return confirm('{Lang::T("Are You Sure?")}')" value="plan"><i class="glyphicon glyphicon-send"></i></button>
+                                    onclick="return confirm('{Lang::T("Are You Sure?")}')" value="plan"><i
+                                        class="glyphicon glyphicon-send"></i></button>
                             </div>
                         </div>
                     </form>

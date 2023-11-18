@@ -62,34 +62,36 @@
 
 <div class="row">
     <div class="col-md-7">
-        <div class="panel panel-primary mb20 panel-hovered project-stats table-responsive">
-            <div class="panel-heading">Vouchers Stock</div>
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>{$_L['Plan_Name']}</th>
-                            <th>unused</th>
-                            <th>used</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {foreach $plans as $stok}
+        {if $_c['disable_voucher'] != 'yes' && $stocks['unused']>0 || $stocks['used']>0}
+            <div class="panel panel-primary mb20 panel-hovered project-stats table-responsive">
+                <div class="panel-heading">Vouchers Stock</div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
                             <tr>
-                                <td>{$stok['name_plan']}</td>
-                                <td>{$stok['unused']}</td>
-                                <td>{$stok['used']}</td>
+                                <th>{$_L['Plan_Name']}</th>
+                                <th>unused</th>
+                                <th>used</th>
                             </tr>
-                        </tbody>
-                    {/foreach}
-                    <tr>
-                        <td>Total</td>
-                        <td>{$stocks['unused']}</td>
-                        <td>{$stocks['used']}</td>
-                    </tr>
-                </table>
+                        </thead>
+                        <tbody>
+                            {foreach $plans as $stok}
+                                <tr>
+                                    <td>{$stok['name_plan']}</td>
+                                    <td>{$stok['unused']}</td>
+                                    <td>{$stok['used']}</td>
+                                </tr>
+                            </tbody>
+                        {/foreach}
+                        <tr>
+                            <td>Total</td>
+                            <td>{$stocks['unused']}</td>
+                            <td>{$stocks['used']}</td>
+                        </tr>
+                    </table>
+                </div>
             </div>
-        </div>
+        {/if}
         <div class="panel panel-warning mb20 panel-hovered project-stats table-responsive">
             <div class="panel-heading">{$_L['User_Expired_Today']}</div>
             <div class="table-responsive">
@@ -125,7 +127,7 @@
             <div class="panel-heading">{Lang::T('Payment Gateway')}: {$_c['payment_gateway']}</div>
         </div>
         <div class="panel panel-info panel-hovered mb20 activities">
-            <div class="panel-heading">{$_L['Activity_Log']}</div>
+            <div class="panel-heading"><a href="{$_url}logs">{$_L['Activity_Log']}</a></div>
             <div class="panel-body">
                 <ul class="list-unstyled">
                     {foreach $dlog as $dlogs}
@@ -147,7 +149,7 @@
         $.getJSON("./version.json?" + Math.random(), function(data) {
             var localVersion = data.version;
             $('#version').html('Version: ' + localVersion);
-            $.getJSON("https://raw.githubusercontent.com/ibnux/phpnuxbill/master/version.json?" + Math
+            $.getJSON("https://raw.githubusercontent.com/hotspotbilling/phpnuxbill/master/version.json?" + Math
                 .random(),
                 function(data) {
                     var latestVersion = data.version;

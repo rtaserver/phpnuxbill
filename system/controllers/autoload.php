@@ -1,7 +1,10 @@
 <?php
+/**
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
+ **/
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
  * used for ajax
  **/
 
@@ -16,7 +19,12 @@ $ui->assign('_admin', $admin);
 switch ($action) {
     case 'pool':
         $routers = _get('routers');
-        $d = ORM::for_table('tbl_pool')->where('routers', $routers)->find_many();
+        if(empty($routers)){
+            $d = ORM::for_table('tbl_pool')->find_many();
+        }else{
+            $d = ORM::for_table('tbl_pool')->where('routers', $routers)->find_many();
+        }
+        $ui->assign('routers', $routers);
         $ui->assign('d', $d);
         $ui->display('autoload-pool.tpl');
         break;
@@ -31,7 +39,11 @@ switch ($action) {
     case 'plan':
         $server = _post('server');
         $jenis = _post('jenis');
-        $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->where('enabled', '1')->find_many();
+        if($server=='radius'){
+            $d = ORM::for_table('tbl_plans')->where('is_radius', 1)->where('type', $jenis)->where('enabled', '1')->find_many();
+        }else{
+            $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->where('enabled', '1')->find_many();
+        }
         $ui->assign('d', $d);
 
         $ui->display('autoload.tpl');
@@ -67,5 +79,5 @@ switch ($action) {
         die();
         break;
     default:
-        echo 'action not defined';
+        $ui->display('a404.tpl');
 }

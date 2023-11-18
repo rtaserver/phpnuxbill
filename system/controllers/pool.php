@@ -1,8 +1,10 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
+
 _admin();
 $ui->assign('_title', $_L['Network']);
 $ui->assign('_system_menu', 'network');
@@ -22,10 +24,10 @@ switch ($action) {
 
         $name = _post('name');
         if ($name != '') {
-            $paginator = Paginator::bootstrap('tbl_pool', 'pool_name', '%' . $name . '%');
+            $paginator = Paginator::build(ORM::for_table('tbl_pool'), ['pool_name' => '%' . $name . '%'], $name);
             $d = ORM::for_table('tbl_pool')->where_like('pool_name', '%' . $name . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_desc('id')->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_pool');
+            $paginator = Paginator::build(ORM::for_table('tbl_pool'));
             $d = ORM::for_table('tbl_pool')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_desc('id')->find_many();
         }
 
@@ -58,11 +60,15 @@ switch ($action) {
         $id  = $routes['2'];
         run_hook('delete_pool'); #HOOK
         $d = ORM::for_table('tbl_pool')->find_one($id);
-        $mikrotik = Mikrotik::info($d['routers']);
         if ($d) {
-            if (!$config['radius_mode']) {
-                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                Mikrotik::removePool($client, $d['pool_name']);
+            if ($d['routers'] != 'radius') {
+                try {
+                    $mikrotik = Mikrotik::info($d['routers']);
+                    $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                    Mikrotik::removePool($client, $d['pool_name']);
+                } catch (Exception $e) {
+                    //ignore exception, it means router has already deleted
+                }
             }
             $d->delete();
 
@@ -70,6 +76,19 @@ switch ($action) {
         }
         break;
 
+    case 'sync':
+        $pools = ORM::for_table('tbl_pool')->find_many();
+        $log = '';
+        foreach ($pools as $pool) {
+            if ($pool['routers'] != 'radius') {
+                $mikrotik = Mikrotik::info($pool['routers']);
+                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                Mikrotik::addPool($client, $pool['pool_name'], $pool['range_ip']);
+                $log .= 'DONE: ' . $pool['pool_name'] . ': ' . $pool['range_ip'] . '<br>';
+            }
+        }
+        r2(U . 'pool/list', 's', $log);
+        break;
     case 'add-post':
         $name = _post('name');
         $ip_address = _post('ip_address');
@@ -87,9 +106,9 @@ switch ($action) {
         if ($d) {
             $msg .= $_L['Pool_already_exist'] . '<br>';
         }
-        $mikrotik = Mikrotik::info($routers);
         if ($msg == '') {
-            if (!$config['radius_mode']) {
+            if ($routers != 'radius') {
+                $mikrotik = Mikrotik::info($routers);
                 $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                 Mikrotik::addPool($client, $name, $ip_address);
             }
@@ -124,9 +143,9 @@ switch ($action) {
             $msg .= $_L['Data_Not_Found'] . '<br>';
         }
 
-        $mikrotik = Mikrotik::info($routers);
         if ($msg == '') {
-            if (!$config['radius_mode']) {
+            if ($routers != 'radius') {
+                $mikrotik = Mikrotik::info($routers);
                 $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                 Mikrotik::setPool($client, $d['pool_name'], $ip_address);
             }

@@ -21,10 +21,11 @@
             <hr>
         </div>
         {if isset($notify)}
-            <div class="row">
-                <div class="col-sm-6 col-sm-offset-3">
-                    {$notify}
-                </div>
+            <div class="alert alert-{if $notify_t == 's'}success{else}danger{/if}">
+                <button type="button" class="close" data-dismiss="alert">
+                    <span aria-hidden="true">×</span>
+                </button>
+                <div>{$notify}</div>
             </div>
         {/if}
         <div class="row">
@@ -47,7 +48,8 @@
                                     {if $_c['country_code_phone']!= ''}
                                         <span class="input-group-addon" id="basic-addon1">+</span>
                                     {else}
-                                        <span class="input-group-addon" id="basic-addon1"><i class="glyphicon glyphicon-phone-alt"></i></span>
+                                        <span class="input-group-addon" id="basic-addon1"><i
+                                                class="glyphicon glyphicon-phone-alt"></i></span>
                                     {/if}
                                     <input type="text" class="form-control" name="username"
                                         placeholder="{if $_c['country_code_phone']!= ''}{$_c['country_code_phone']}{/if} {$_L['Phone_Number']}">
@@ -76,13 +78,37 @@
                                     <button type="submit" class="btn btn-primary">{$_L['Login']}</button>
                                 </div>
                             </div>
+                            <br>
+                            <center>
+                                <a href="javascript:showPrivacy()">Privacy</a>
+                                &bull;
+                                <a href="javascript:showTaC()">T &amp; C</a>
+                            </center>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <script src="ui/ui/scripts/vendors.js"></script>
+
+    <!-- Modal -->
+    <div class="modal fade" id="HTMLModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body" id="HTMLModal_konten"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">&times;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="ui/ui/scripts/vendors.js?v=1"></script>
 </body>
 
 </html>

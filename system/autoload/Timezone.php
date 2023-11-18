@@ -1,7 +1,9 @@
 <?php
 /**
-* PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
-**/
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
+ **/
+
 
 class Timezone {
     public static function timezoneList()
@@ -35,5 +37,14 @@ class Timezone {
         }
 
         return $timezoneList;
+    }
+
+    public static function getTimeOffset($tz = 'Asia/Jakarta'){
+        $utcTime = new DateTime('now', new DateTimeZone('UTC'));
+        $currentTimezone = new DateTimeZone($tz);
+        $offset = $currentTimezone->getOffset($utcTime);
+        $sign = ($offset > 0) ? '+' : '-';
+        $offset = gmdate('H:i', abs($offset));
+        return $sign.$offset;
     }
 }

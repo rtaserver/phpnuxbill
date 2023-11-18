@@ -23,11 +23,17 @@
 						<label class="col-md-2 control-label"><a href="{$_url}routers/add">{$_L['Routers']}</a></label>
 						<div class="col-md-6">
 							<select id="routers" name="routers" class="form-control select2">
+                                {if $_c['radius_enable']}
+                                    <option value="radius">Radius</option>
+                                {/if}
                                 {foreach $r as $rs}
 									<option value="{$rs['name']}">{$rs['name']}</option>
                                 {/foreach}
                             </select>
 						</div>
+                        {if $_c['radius_enable']}
+                            <p class="help-block col-md-4">For Radius, you need to add <b>Pool Name</b> in Mikrotik manually</p>
+                        {/if}
                     </div>
 					<div class="form-group">
 						<div class="col-lg-offset-2 col-lg-10">

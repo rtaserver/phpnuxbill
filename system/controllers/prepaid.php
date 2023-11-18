@@ -1,11 +1,10 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
- * @copyright	Copyright (C) 2014-2015 PHP Mikrotik Billing
- * @license		GNU General Public License version 2 or later; see LICENSE.txt
-
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
+
 _admin();
 $ui->assign('_title', $_L['Recharge_Account']);
 $ui->assign('_system_menu', 'prepaid');
@@ -37,18 +36,41 @@ document.addEventListener("DOMContentLoaded", function(event) {
 </script>
 EOT;
 
-require_once 'system/autoload/PEAR2/Autoload.php';
-
 switch ($action) {
+    case 'sync':
+        set_time_limit(-1);
+        $plans = ORM::for_table('tbl_user_recharges')->where('status', 'on')->find_many();
+        $log = '';
+        $router = '';
+        foreach ($plans as $plan) {
+            if ($router != $plan['routers'] && $plan['routers'] != 'radius') {
+                $mikrotik = Mikrotik::info($plan['routers']);
+                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                $router = $plan['routers'];
+            }
+            $p = ORM::for_table('tbl_plans')->findOne($plan['plan_id']);
+            $c = ORM::for_table('tbl_customers')->findOne($plan['customer_id']);
+            if ($plan['routers'] == 'radius') {
+                Radius::customerAddPlan($c, $p, $plan['expiration'] . ' ' . $plan['time']);
+            } else {
+                if ($plan['type'] == 'Hotspot') {
+                    Mikrotik::addHotspotUser($client, $p, $c);
+                } else if ($plan['type'] == 'PPPOE') {
+                    Mikrotik::addPpoeUser($client, $p, $c);
+                }
+            }
+            $log .= "DONE : $plan[username], $plan[namebp], $plan[type], $plan[routers]<br>";
+        }
+        r2(U . 'prepaid/list', 's', $log);
     case 'list':
         $ui->assign('xfooter', '<script type="text/javascript" src="ui/lib/c/prepaid.js"></script>');
-
+        $ui->assign('_title', $_L['Customers']);
         $username = _post('username');
         if ($username != '') {
-            $paginator = Paginator::bootstrap('tbl_user_recharges', 'username', '%' . $username . '%');
+            $paginator = Paginator::build(ORM::for_table('tbl_user_recharges'), ['username' => '%' . $username . '%'], $username);
             $d = ORM::for_table('tbl_user_recharges')->where_like('username', '%' . $username . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_desc('id')->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_user_recharges');
+            $paginator = Paginator::build(ORM::for_table('tbl_user_recharges'));
             $d = ORM::for_table('tbl_user_recharges')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_desc('id')->find_many();
         }
 
@@ -65,6 +87,9 @@ switch ($action) {
         $ui->assign('p', $p);
         $r = ORM::for_table('tbl_routers')->where('enabled', '1')->find_many();
         $ui->assign('r', $r);
+        if (isset($routes['2']) && !empty($routes['2'])) {
+            $ui->assign('cust', ORM::for_table('tbl_customers')->find_one($routes['2']));
+        }
         run_hook('view_recharge'); #HOOK
         $ui->display('recharge.tpl');
         break;
@@ -112,12 +137,31 @@ switch ($action) {
         }
         break;
 
+    case 'view':
+        $id = $routes['2'];
+        $d = ORM::for_table('tbl_transactions')->where('id', $id)->find_one();
+        $ui->assign('in', $d);
+
+        if (!empty($routes['3']) && $routes['3'] == 'send') {
+            $c = ORM::for_table('tbl_customers')->where('username', $d['username'])->find_one();
+            if ($c) {
+                Message::sendInvoice($c, $d);
+                r2(U . 'prepaid/view/' . $id, 's', "Success send to customer");
+            }
+            r2(U . 'prepaid/view/' . $id, 'd', "Customer not found");
+        }
+        $ui->assign('_title', 'View Invoice');
+        $ui->assign('date', Lang::dateAndTimeFormat($d['recharged_on'], $d['recharged_time']));
+        $ui->display('invoice.tpl');
+        break;
+
+
     case 'print':
         $id = _post('id');
         $d = ORM::for_table('tbl_transactions')->where('id', $id)->find_one();
         $ui->assign('d', $d);
 
-        $ui->assign('date', date("Y-m-d H:i:s"));
+        $ui->assign('date', Lang::dateAndTimeFormat($d['recharged_on'], $d['recharged_time']));
         run_hook('print_invoice'); #HOOK
         $ui->display('invoice-print.tpl');
         break;
@@ -127,7 +171,7 @@ switch ($action) {
         $d = ORM::for_table('tbl_user_recharges')->find_one($id);
         if ($d) {
             $ui->assign('d', $d);
-            $p = ORM::for_table('tbl_plans')->where('enabled', '1')->find_many();
+            $p = ORM::for_table('tbl_plans')->where('enabled', '1')->where_not_equal('type', 'Balance')->find_many();
             $ui->assign('p', $p);
             run_hook('view_edit_customer_plan'); #HOOK
             $ui->display('prepaid-edit.tpl');
@@ -138,27 +182,25 @@ switch ($action) {
 
     case 'delete':
         $id  = $routes['2'];
-
         $d = ORM::for_table('tbl_user_recharges')->find_one($id);
-        $mikrotik = Mikrotik::info($d['routers']);
         if ($d) {
             run_hook('delete_customer_active_plan'); #HOOK
-            if ($d['type'] == 'Hotspot') {
-                if (!$config['radius_mode']) {
+            $p = ORM::for_table('tbl_plans')->find_one($d['plan_id']);
+            if ($p['is_radius']) {
+                Radius::customerDeactivate($d['username']);
+            } else {
+                $mikrotik = Mikrotik::info($d['routers']);
+                if ($d['type'] == 'Hotspot') {
                     $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                     Mikrotik::removeHotspotUser($client, $d['username']);
                     Mikrotik::removeHotspotActiveUser($client, $d['username']);
-                }
-
-                $d->delete();
-            } else {
-                if (!$config['radius_mode']) {
+                } else {
                     $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                     Mikrotik::removePpoeUser($client, $d['username']);
                     Mikrotik::removePpoeActive($client, $d['username']);
                 }
-                $d->delete();
             }
+            $d->delete();
             _log('[' . $admin['username'] . ']: ' . 'Delete Plan for Customer ' . $c['username'] . '  [' . $in['plan_name'] . '][' . Lang::moneyFormat($in['price']) . ']', 'Admin', $admin['id']);
             r2(U . 'prepaid/list', 's', $_L['Delete_Successfully']);
         }
@@ -177,7 +219,11 @@ switch ($action) {
         } else {
             $msg .= $_L['Data_Not_Found'] . '<br>';
         }
-
+        $p = ORM::for_table('tbl_plans')->where('id', $plan_id)->where('enabled', '1')->find_one();
+        if ($d) {
+        } else {
+            $msg .= ' Plan Not Found<br>';
+        }
         if ($msg == '') {
             run_hook('edit_customer_plan'); #HOOK
             $d->username = $username;
@@ -185,8 +231,9 @@ switch ($action) {
             //$d->recharged_on = $recharged_on;
             $d->expiration = $expiration;
             $d->time = $time;
+            $d->routers = $p['routers'];
             $d->save();
-            Package::changeTo($username, $id_plan);
+            Package::changeTo($username, $id_plan, $id);
             _log('[' . $admin['username'] . ']: ' . 'Edit Plan for Customer ' . $d['username'] . ' to [' . $d['plan_name'] . '][' . Lang::moneyFormat($d['price']) . ']', 'Admin', $admin['id']);
             r2(U . 'prepaid/list', 's', $_L['Updated_Successfully']);
         } else {
@@ -200,7 +247,7 @@ switch ($action) {
         $code = _post('code');
         if ($code != '') {
             $ui->assign('code', $code);
-            $paginator = Paginator::bootstrap('tbl_voucher', 'code', '%' . $code . '%');
+            $paginator = Paginator::build(ORM::for_table('tbl_voucher'), ['code' => '%' . $code . '%'], $code);
             $d = ORM::for_table('tbl_plans')->where('enabled', '1')
                 ->join('tbl_voucher', array('tbl_plans.id', '=', 'tbl_voucher.id_plan'))
                 ->where_like('tbl_voucher.code', '%' . $code . '%')
@@ -208,7 +255,7 @@ switch ($action) {
                 ->limit($paginator['limit'])
                 ->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_voucher');
+            $paginator = Paginator::build(ORM::for_table('tbl_voucher'));
             $d = ORM::for_table('tbl_plans')->where('enabled', '1')
                 ->join('tbl_voucher', array('tbl_plans.id', '=', 'tbl_voucher.id_plan'))
                 ->offset($paginator['startpoint'])
@@ -235,14 +282,20 @@ switch ($action) {
         break;
 
     case 'print-voucher':
-        $from_id = _post('from_id') * 1;
-        $planid = _post('planid') * 1;
-        $pagebreak = _post('pagebreak') * 1;
-        $limit = _post('limit') * 1;
-
-        if ($pagebreak < 1) $pagebreak = 6;
+        $from_id = _post('from_id');
+        $planid = _post('planid');
+        $pagebreak = _post('pagebreak');
+        $limit = _post('limit');
+        $vpl = _post('vpl');
+        if (empty($vpl)) {
+            $vpl = 3;
+        }
+        if ($pagebreak < 1) $pagebreak = 12;
 
         if ($limit < 1) $limit = $pagebreak * 2;
+        if (empty($from_id)) {
+            $from_id = 0;
+        }
 
         if ($from_id > 0 && $planid > 0) {
             $v = ORM::for_table('tbl_plans')
@@ -293,9 +346,12 @@ switch ($action) {
                 ->where('tbl_voucher.status', '0')
                 ->count();
         }
+        $template = file_get_contents("pages/Voucher.html");
+        $template = str_replace('[[company_name]]', $config['CompanyName'], $template);
 
         $ui->assign('_title', $_L['Voucher_Hotspot']);
         $ui->assign('from_id', $from_id);
+        $ui->assign('vpl', $vpl);
         $ui->assign('pagebreak', $pagebreak);
 
         $plans = ORM::for_table('tbl_plans')->find_many();
@@ -303,7 +359,20 @@ switch ($action) {
         $ui->assign('limit', $limit);
         $ui->assign('planid', $planid);
 
-        $ui->assign('v', $v);
+        $voucher = [];
+        $n = 1;
+        foreach ($v as $vs) {
+            $temp = $template;
+            $temp = str_replace('[[qrcode]]', '<img src="qrcode/?data=' . $vs['code'] . '">', $temp);
+            $temp = str_replace('[[price]]', Lang::moneyFormat($vs['price']), $temp);
+            $temp = str_replace('[[voucher_code]]', $vs['code'], $temp);
+            $temp = str_replace('[[plan]]', $vs['name_plan'], $temp);
+            $temp = str_replace('[[counter]]', $n, $temp);
+            $voucher[] = $temp;
+            $n++;
+        }
+
+        $ui->assign('voucher', $voucher);
         $ui->assign('vc', $vc);
 
         //for counting pagebreak
@@ -332,7 +401,11 @@ switch ($action) {
             run_hook('create_voucher'); #HOOK
             for ($i = 0; $i < $numbervoucher; $i++) {
                 $code = strtoupper(substr(md5(time() . rand(10000, 99999)), 0, $lengthcode));
-                //TODO: IMPLEMENT Voucher Generator
+                if ($config['voucher_format'] == 'low') {
+                    $code = strtolower($code);
+                } else if ($config['voucher_format'] == 'rand') {
+                    $code = Lang::randomUpLowCase($code);
+                }
                 $d = ORM::for_table('tbl_voucher')->create();
                 $d->type = $type;
                 $d->routers = $server;
@@ -416,5 +489,5 @@ switch ($action) {
         }
         break;
     default:
-        echo 'action not defined';
+        $ui->display('a404.tpl');
 }

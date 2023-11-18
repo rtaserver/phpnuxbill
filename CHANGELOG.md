@@ -2,6 +2,67 @@
 
 # CHANGELOG
 
+
+## 2023.11.17
+
+- Error details not show in Customer
+
+## 2023.11.15
+
+- Customer Multi Router package
+- Fix edit package, Admin can change Customer to another router
+
+## 2023.11.9
+
+- fix bug variable in cron
+- fix update plan
+
+## 2023.10.27
+
+- Backup and restore database
+- Fix checking radius client
+
+## 2023.10.25
+
+- fix wrong file check in cron, error only for newly installed
+
+## 2023.10.24
+
+- Fix logic cronjob
+- assign router to NAS, but not yet used
+- Fix Pagination
+- Move Alert from hardcode
+
+## 2023.10.20
+
+- View Invoice
+- Resend Invoice
+- Custom Voucher
+
+## 2023.10.17
+
+- Happy Birthday To Me 🎂 \(^o^)/
+- Support FreeRadius with Mysql
+- Bring back Themes support
+- Log Viewer
+
+## 2023.9.21
+
+- Customer can extend Plan
+- Customer can Deactivate active plan
+- add variable nux-router to select  only plan from that router
+- Show user expired until 30 items
+
+## 2023.9.20
+
+- Fix Customer balance header
+- Deactivate Customer active plan
+- Sync Customer Plan to Mikrotik
+- Recharge Customer from Customer Details
+- Add Privacy Policy and Terms and Conditions Pages
+
+## 2023.9.13
+
 - add Current balance in notification
 - Buy Plan for Friend
 - Recharge Friend plan

@@ -1,11 +1,14 @@
 <?php
+/**
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
+ **/
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
- * using proxy, add this variable in config.php
- * $http_proxy  = '127.0.0.1:3128';
- * if proxy using authentication, use this parameter
- * $http_proxyauth = 'user:password';
+ *  using proxy, add this variable in config.php
+ *  $http_proxy  = '127.0.0.1:3128';
+ *  if proxy using authentication, use this parameter
+ *  $http_proxyauth = 'user:password';
  **/
 
 class Http
@@ -18,7 +21,9 @@ class Http
         curl_setopt($ch, CURLOPT_POST, 0);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        if(is_array($headers) && count($headers)>0){
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         if (!empty($http_proxy)) {
             curl_setopt($ch, CURLOPT_PROXY, $http_proxy);
@@ -55,7 +60,9 @@ class Http
             }
         }
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($array_post));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        if(is_array($headers) && count($headers)>0){
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
         if (!empty($basic)) {
             curl_setopt($ch, CURLOPT_USERPWD, $basic);
         }
@@ -90,7 +97,9 @@ class Http
             }
         }
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($array_post));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        if(is_array($headers) && count($headers)>0){
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
         if (!empty($basic)) {
             curl_setopt($ch, CURLOPT_USERPWD, $basic);
         }

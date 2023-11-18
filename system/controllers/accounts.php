@@ -1,8 +1,11 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
+
+
 _auth();
 $ui->assign('_title', $_L['My_Account']);
 $ui->assign('_system_menu', 'accounts');
@@ -10,10 +13,6 @@ $ui->assign('_system_menu', 'accounts');
 $action = $routes['1'];
 $user = User::_info();
 $ui->assign('_user', $user);
-
-use PEAR2\Net\RouterOS;
-
-require_once 'system/autoload/PEAR2/Autoload.php';
 
 switch ($action) {
 
@@ -42,47 +41,31 @@ switch ($action) {
 
                     $c = ORM::for_table('tbl_user_recharges')->where('username', $user['username'])->find_one();
                     if ($c) {
-                        $mikrotik = Mikrotik::info($c['routers']);
-                        if ($c['type'] == 'Hotspot') {
-                            if (!$config['radius_mode']) {
-                                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                                Mikrotik::setHotspotUser($client, $c['username'], $npass);
-                                Mikrotik::removeHotspotActiveUser($client, $user['username']);
+                        $p = ORM::for_table('tbl_plans')->where('id', $c['plan_id'])->find_one();
+                        if($p['is_radius']){
+                            if($c['type'] == 'Hotspot' || ($c['type'] == 'PPPOE' && empty($d['pppoe_password']))){
+                                Radius::customerUpsert($d, $p);
                             }
-                            $d->password = $npass;
-                            $d->save();
-
-                            _msglog('s', $_L['Password_Changed_Successfully']);
-                            _log('[' . $user['username'] . ']: Password changed successfully', 'User', $user['id']);
-
-                            r2(U . 'login');
-                        } else {
-                            if (!$config['radius_mode']) {
-                                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                                if(!empty($d['pppoe_password'])){
-                                    Mikrotik::setPpoeUser($client, $c['username'], $d['pppoe_password']);
-                                }else{
-                                    Mikrotik::setPpoeUser($client, $c['username'], $npass);
-                                }
+                        }else{
+                            $mikrotik = Mikrotik::info($c['routers']);
+                            $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                            if ($c['type'] == 'Hotspot') {
+                                    Mikrotik::setHotspotUser($client, $c['username'], $npass);
+                                    Mikrotik::removeHotspotActiveUser($client, $user['username']);
+                            } else if(empty($d['pppoe_password'])){
+                                // only change when pppoe_password empty
+                                Mikrotik::setPpoeUser($client, $c['username'], $npass);
                                 Mikrotik::removePpoeActive($client, $user['username']);
                             }
-                            $d->password = $npass;
-                            $d->save();
-
-                            _msglog('s', $_L['Password_Changed_Successfully']);
-                            _log('[' . $user['username'] . ']: Password changed successfully', 'User', $user['id']);
-
-                            r2(U . 'login');
                         }
-                    } else {
-                        $d->password = $npass;
-                        $d->save();
-
-                        _msglog('s', $_L['Password_Changed_Successfully']);
-                        _log('[' . $user['username'] . ']: Password changed successfully', 'User', $user['id']);
-
-                        r2(U . 'login');
                     }
+                    $d->password = $npass;
+                    $d->save();
+
+                    _msglog('s', $_L['Password_Changed_Successfully']);
+                    _log('[' . $user['username'] . ']: Password changed successfully', 'User', $user['id']);
+
+                    r2(U . 'login');
                 } else {
                     r2(U . 'accounts/change-password', 'e', $_L['Incorrect_Current_Password']);
                 }
@@ -140,5 +123,5 @@ switch ($action) {
         break;
 
     default:
-        echo 'action not defined';
+        $ui->display('a404.tpl');
 }

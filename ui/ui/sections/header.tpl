@@ -183,6 +183,8 @@
                                         href="{$_url}reports/daily-report">{$_L['Daily_Report']}</a></li>
                                 <li {if $_routes[1] eq 'by-period'}class="active" {/if}><a
                                         href="{$_url}reports/by-period">{$_L['Period_Reports']}</a></li>
+                                <li {if $_routes[1] eq 'activation'}class="active" {/if}><a
+                                    href="{$_url}reports/activation">{Lang::T('Activation History')}</a></li>
                                 {$_MENU_REPORTS}
                             </ul>
                         </li>
@@ -199,6 +201,10 @@
                             <ul class="treeview-menu">
                                 <li {if $_routes[0] eq 'routers' and $_routes[1] eq 'list'}class="active" {/if}><a
                                         href="{$_url}routers/list">{$_L['Routers']}</a></li>
+                                {if $_c['radius_enable']}
+                                    <li {if $_routes[0] eq 'radius' and $_routes[1] eq 'nas-list'}class="active" {/if}><a
+                                            href="{$_url}radius/nas-list">Radius NAS</a></li>
+                                {/if}
                                 <li {if $_routes[0] eq 'pool' and $_routes[1] eq 'list'}class="active" {/if}><a
                                         href="{$_url}pool/list">{$_L['Pool']}</a></li>
                                 {$_MENU_NETWORK}
@@ -218,14 +224,19 @@
                                 <li {if $_routes[1] eq 'Voucher'}class="active" {/if}><a
                                         href="{$_url}pages/Voucher">{$_L['Voucher']} Template</a></li>
                                 <li {if $_routes[1] eq 'Announcement'}class="active" {/if}><a
-                                        href="{$_url}pages/Announcement">{$_L['Announcement']} Editor</a></li>
+                                        href="{$_url}pages/Announcement">{$_L['Announcement']}</a></li>
                                 <li {if $_routes[1] eq 'Registration_Info'}class="active" {/if}><a
-                                        href="{$_url}pages/Registration_Info">{$_L['Registration_Info']} Editor</a></li>
+                                        href="{$_url}pages/Registration_Info">{$_L['Registration_Info']}</a></li>
+                                <li {if $_routes[1] eq 'Privacy_Policy'}class="active" {/if}><a
+                                        href="{$_url}pages/Privacy_Policy">Privacy Policy</a></li>
+                                <li {if $_routes[1] eq 'Terms_and_Conditions'}class="active" {/if}><a
+                                        href="{$_url}pages/Terms_and_Conditions">Terms and Conditions</a></li>
                                 {$_MENU_PAGES}
                             </ul>
                         </li>
                         {$_MENU_AFTER_PAGES}
-                        <li class="{if $_system_menu eq 'settings' || $_system_menu eq 'paymentgateway' }active{/if} treeview">
+                        <li
+                            class="{if $_system_menu eq 'settings' || $_system_menu eq 'paymentgateway' }active{/if} treeview">
                             <a href="#">
                                 <i class="ion ion-gear-a"></i> <span>{$_L['Settings']}</span>
                                 <span class="pull-right-container">
@@ -241,8 +252,8 @@
                                         href="{$_url}settings/notifications">{Lang::T('User Notification')}</a></li>
                                 <li {if $_routes[1] eq 'users'}class="active" {/if}><a
                                         href="{$_url}settings/users">{$_L['Administrator_Users']}</a></li>
-                                {* <li {if $_routes[1] eq 'dbstatus'}class="active" {/if}><a
-                                        href="{$_url}settings/dbstatus">{$_L['Backup_Restore']}</a></li> *}
+                                <li {if $_routes[1] eq 'dbstatus'}class="active" {/if}><a
+                                        href="{$_url}settings/dbstatus">{$_L['Backup_Restore']}</a></li>
                                 <li {if $_routes[0] eq 'pluginmanager'}class="active" {/if}>
                                     <a href="{$_url}pluginmanager">{Lang::T('Plugin Manager')}</a>
                                 </li>
@@ -255,6 +266,24 @@
                             </ul>
                         </li>
                         {$_MENU_AFTER_SETTINGS}
+                        <li class="{if $_system_menu eq 'logs' }active{/if} treeview">
+                            <a href="#">
+                                <i class="ion ion-clock"></i> <span>{Lang::T('Logs')}</span>
+                                <span class="pull-right-container">
+                                    <i class="fa fa-angle-left pull-right"></i>
+                                </span>
+                            </a>
+                            <ul class="treeview-menu">
+                                <li {if $_routes[1] eq 'list'}class="active" {/if}><a
+                                        href="{$_url}logs/phpnuxbill">PhpNuxBill</a></li>
+                            {if $_c['radius_enable']}
+                                    <li {if $_routes[1] eq 'radius'}class="active" {/if}><a href="{$_url}logs/radius">Radius</a>
+                                    </li>
+                            {/if}
+                            </ul>
+                            {$_MENU_LOGS}
+                        </li>
+                        {$_MENU_AFTER_LOGS}
                         <li {if $_system_menu eq 'community'}class="active" {/if}>
                             <a href="{$_url}community">
                                 <i class="ion ion-chatboxes"></i>
@@ -274,4 +303,11 @@
             </section>
 
             <section class="content">
-{if isset($notify)}{$notify}{/if}
+{if isset($notify)}
+    <div class="alert alert-{if $notify_t == 's'}success{else}danger{/if}">
+		<button type="button" class="close" data-dismiss="alert">
+		<span aria-hidden="true">×</span>
+		</button>
+		<div>{$notify}</div>
+    </div>
+{/if}

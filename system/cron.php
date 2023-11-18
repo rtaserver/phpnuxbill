@@ -1,24 +1,26 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
+
 
 // on some server, it getting error because of slash is backwards
 function _autoloader($class)
 {
     if (strpos($class, '_') !== false) {
         $class = str_replace('_', DIRECTORY_SEPARATOR, $class);
-        if (file_exists(__DIR__.DIRECTORY_SEPARATOR.'autoload' . DIRECTORY_SEPARATOR . $class . '.php')) {
-            include __DIR__.DIRECTORY_SEPARATOR.'autoload' . DIRECTORY_SEPARATOR . $class . '.php';
+        if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php')) {
+            include __DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php';
         } else {
             $class = str_replace("\\", DIRECTORY_SEPARATOR, $class);
             if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php'))
                 include __DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php';
         }
     } else {
-        if (file_exists(__DIR__.DIRECTORY_SEPARATOR.'autoload' . DIRECTORY_SEPARATOR . $class . '.php')) {
-            include __DIR__.DIRECTORY_SEPARATOR.'autoload' . DIRECTORY_SEPARATOR . $class . '.php';
+        if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php')) {
+            include __DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php';
         } else {
             $class = str_replace("\\", DIRECTORY_SEPARATOR, $class);
             if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . 'autoload' . DIRECTORY_SEPARATOR . $class . '.php'))
@@ -29,10 +31,22 @@ function _autoloader($class)
 spl_autoload_register('_autoloader');
 
 
-if(php_sapi_name() !== 'cli'){
+if (php_sapi_name() !== 'cli') {
     echo "<pre>";
 }
 
+if(!file_exists('../config.php')){
+    die("config.php file not found");
+}
+
+
+if(!file_exists('orm.php')){
+    die("orm.php file not found");
+}
+
+if(!file_exists('uploads/notifications.default.json')){
+    die("uploads/notifications.default.json file not found");
+}
 
 require_once '../config.php';
 require_once 'orm.php';
@@ -60,6 +74,14 @@ foreach (glob(File::pathFixer("plugin/*.php")) as $filename) {
 $result = ORM::for_table('tbl_appconfig')->find_many();
 foreach ($result as $value) {
     $config[$value['setting']] = $value['value'];
+}
+
+if (!empty($radius_user) && $config['radius_enable']) {
+    ORM::configure("mysql:host=$radius_host;dbname=$radius_name", null, 'radius');
+    ORM::configure('username', $radius_user, 'radius');
+    ORM::configure('password', $radius_pass, 'radius');
+    ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'), 'radius');
+    ORM::configure('return_result_sets', true, 'radius');
 }
 
 echo "PHP Time\t" . date('Y-m-d H:i:s') . "\n";
@@ -92,16 +114,23 @@ foreach ($d as $ds) {
             $m = ORM::for_table('tbl_routers')->where('name', $ds['routers'])->find_one();
             $p = ORM::for_table('tbl_plans')->where('id', $u['plan_id'])->find_one();
 
-            if (!$_c['radius_mode']) {
+            if ($p['is_radius']) {
+                if (empty($p['pool_expired'])) {
+                    print_r(Radius::customerDeactivate($c['username']));
+                } else {
+                    Radius::upsertCustomerAttr($c['username'], 'Framed-Pool', $p['pool_expired'], ':=');
+                    print_r(Radius::disconnectCustomer($c['username']));
+                }
+            } else {
                 $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
-                if(!empty($p['pool_expired'])){
-                    Mikrotik::setHotspotUserPackage($client, $c['username'], 'EXPIRED NUXBILL '.$p['pool_expired']);
-                }else{
+                if (!empty($p['pool_expired'])) {
+                    Mikrotik::setHotspotUserPackage($client, $c['username'], 'EXPIRED NUXBILL ' . $p['pool_expired']);
+                } else {
                     Mikrotik::removeHotspotUser($client, $c['username']);
                 }
                 Mikrotik::removeHotspotActiveUser($client, $c['username']);
-                Message::sendPackageNotification($c['phonenumber'], $c['fullname'], $u['namebp'], $textExpired, $config['user_notification_expired']);
             }
+            Message::sendPackageNotification($c['phonenumber'], $c['fullname'], $u['namebp'], $textExpired, $config['user_notification_expired']);
             //update database user dengan status off
             $u->status = 'off';
             $u->save();
@@ -139,16 +168,23 @@ foreach ($d as $ds) {
             $m = ORM::for_table('tbl_routers')->where('name', $ds['routers'])->find_one();
             $p = ORM::for_table('tbl_plans')->where('id', $u['plan_id'])->find_one();
 
-            if (!$_c['radius_mode']) {
+            if ($p['is_radius']) {
+                if (empty($p['pool_expired'])) {
+                    print_r(Radius::customerDeactivate($c['username']));
+                } else {
+                    Radius::upsertCustomerAttr($c['username'], 'Framed-Pool', $p['pool_expired'], ':=');
+                    print_r(Radius::disconnectCustomer($c['username']));
+                }
+            } else {
                 $client = Mikrotik::getClient($m['ip_address'], $m['username'], $m['password']);
-                if(!empty($p['pool_expired'])){
-                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED NUXBILL '.$p['pool_expired']);
-                }else{
+                if (!empty($p['pool_expired'])) {
+                    Mikrotik::setPpoeUserPlan($client, $c['username'], 'EXPIRED NUXBILL ' . $p['pool_expired']);
+                } else {
                     Mikrotik::removePpoeUser($client, $c['username']);
                 }
                 Mikrotik::removePpoeActive($client, $c['username']);
-                Message::sendPackageNotification($c['phonenumber'], $c['fullname'], $u['namebp'], $textExpired, $config['user_notification_expired']);
             }
+            Message::sendPackageNotification($c['phonenumber'], $c['fullname'], $u['namebp'], $textExpired, $config['user_notification_expired']);
 
             $u->status = 'off';
             $u->save();

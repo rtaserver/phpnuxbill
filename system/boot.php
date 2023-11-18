@@ -101,10 +101,10 @@ try {
             $http_proxyauth = $config['http_proxyauth'];
         }
     }
-    if ($config['radius_mode']) {
+    if ((!empty($radius_user) && $config['radius_enable']) || _post('radius_enable')) {
         ORM::configure("mysql:host=$radius_host;dbname=$radius_name", null, 'radius');
         ORM::configure('username', $radius_user, 'radius');
-        ORM::configure('password', $radius_password, 'radius');
+        ORM::configure('password', $radius_pass, 'radius');
         ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'), 'radius');
         ORM::configure('return_result_sets', true, 'radius');
     }
@@ -116,7 +116,11 @@ try {
     $ui->setConfigDir(File::pathFixer('ui/conf/'));
     $ui->setCacheDir(File::pathFixer('ui/cache/'));
     $ui->assign("error_title", "PHPNuxBill Crash");
-    $ui->assign("error_message", $e->getMessage());
+    if (isset($_SESSION['uid'])) {
+        $ui->assign("error_message", $e->getMessage() . '<br>');
+    }else{
+        $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
+    }
     $ui->display('router-error.tpl');
     die();
 }
@@ -126,11 +130,26 @@ function _notify($msg, $type = 'e')
     $_SESSION['ntype'] = $type;
     $_SESSION['notify'] = $msg;
 }
-
+if(empty($config['language'])){
+    $config['language'] = 'english';
+}
 $lan_file = File::pathFixer('system/lan/' . $config['language'] . '/common.lan.php');
-require($lan_file);
+if(file_exists($lan_file)){
+    require $lan_file;
+}else{
+    die("$lan_file not found");
+}
+
 $ui = new Smarty();
-$ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'default' => File::pathFixer('ui/ui/')]);
+
+if (!empty($config['theme']) && $config['theme'] != 'default') {
+    $_theme = APP_URL . '/ui/themes/' . $config['theme'];
+    $ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'theme' => File::pathFixer('ui/themes/' . $config['theme']), 'default' => File::pathFixer('ui/ui/')]);
+} else {
+    $_theme = APP_URL . '/ui/ui';
+    $ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'default' => File::pathFixer('ui/ui/')]);
+}
+$ui->assign('_theme', $_theme);
 $ui->addTemplateDir(File::pathFixer('system/paymentgateway/ui/'), 'pg');
 $ui->addTemplateDir(File::pathFixer('system/plugin/ui/'), 'plugin');
 $ui->setCompileDir(File::pathFixer('ui/compiled/'));
@@ -155,19 +174,8 @@ function _msglog($type, $msg)
 if (isset($_SESSION['notify'])) {
     $notify = $_SESSION['notify'];
     $ntype = $_SESSION['ntype'];
-    if ($ntype == 's') {
-        $ui->assign('notify', '<div class="alert alert-info">
-		<button type="button" class="close" data-dismiss="alert">
-		<span aria-hidden="true">×</span>
-		</button>
-		<div>' . $notify . '</div></div>');
-    } else {
-        $ui->assign('notify', '<div class="alert alert-danger">
-		<button type="button" class="close" data-dismiss="alert">
-		<span aria-hidden="true">×</span>
-		</button>
-		<div>' . $notify . '</div></div>');
-    }
+    $ui->assign('notify', $notify);
+    $ui->assign('notify_t', $ntype);
     unset($_SESSION['notify']);
     unset($_SESSION['ntype']);
 }
@@ -337,8 +345,11 @@ try {
         r2(U . 'dashboard', 'e', 'not found');
     }
 } catch (Exception $e) {
+    if (isset($_SESSION['uid'])) {
+        r2(U . 'home' , 'e', $e->getMessage());
+    }
+    $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
     $ui->assign("error_title", "PHPNuxBill Crash");
-    $ui->assign("error_message", $e->getMessage());
     $ui->display('router-error.tpl');
     die();
 }

@@ -1,8 +1,8 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
-
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 _admin();
 $ui->assign('_title', $_L['Settings']);
@@ -23,6 +23,28 @@ switch ($action) {
             $logo = 'system/uploads/logo.default.png';
         }
         $ui->assign('logo', $logo);
+        if ($_c['radius_enable'] && empty($_c['radius_client'])) {
+            try {
+                $_c['radius_client'] = Radius::getClient();
+                $ui->assign('_c', $_c);
+            } catch (Exception $e) {
+                //ignore
+            }
+        }
+        $themes = [];
+        $files = scandir('ui/themes/');
+        foreach ($files as $file) {
+            if (is_dir('ui/themes/' . $file) && !in_array($file, ['.', '..'])) {
+                $themes[] = $file;
+            }
+        }
+        $php = trim(shell_exec('which php'));
+        if (empty($php)) {
+            $php = 'php';
+        }
+        $ui->assign('php', $php);
+        $ui->assign('dir', str_replace('controllers', '', __DIR__));
+        $ui->assign('themes', $themes);
         run_hook('view_app_settings'); #HOOK
         $ui->display('app-settings.tpl');
         break;
@@ -34,12 +56,11 @@ switch ($action) {
         $folders = [];
         $files = scandir('system/lan/');
         foreach ($files as $file) {
-            if(is_dir('system/lan/'.$file) && !in_array($file,['.','..'])){
+            if (is_dir('system/lan/' . $file) && !in_array($file, ['.', '..'])) {
                 $folders[] = $file;
             }
         }
         $ui->assign('lan', $folders);
-
         $timezonelist = Timezone::timezoneList();
         $ui->assign('tlist', $timezonelist);
         $ui->assign('xjq', ' $("#tzone").select2(); ');
@@ -56,10 +77,10 @@ switch ($action) {
 
         $username = _post('username');
         if ($username != '') {
-            $paginator = Paginator::bootstrap('tbl_users', 'username', '%' . $username . '%');
+            $paginator = Paginator::build(ORM::for_table('tbl_users'), ['username' => '%' . $username . '%'], $username);
             $d = ORM::for_table('tbl_users')->where_like('username', '%' . $username . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_asc('id')->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_users');
+            $paginator = Paginator::build(ORM::for_table('tbl_users'));
             $d = ORM::for_table('tbl_users')->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_asc('id')->find_many();
         }
 
@@ -233,14 +254,21 @@ switch ($action) {
         $tawkto = _post('tawkto');
         $http_proxy = _post('http_proxy');
         $http_proxyauth = _post('http_proxyauth');
-        $radius_mode = _post('radius_mode') * 1;
+        $radius_enable = _post('radius_enable');
+        $radius_client = _post('radius_client');
+        $theme = _post('theme');
+        $voucher_format = _post('voucher_format');
         run_hook('save_settings'); #HOOK
 
 
         if (!empty($_FILES['logo']['name'])) {
-            if (file_exists('system/uploads/logo.png')) unlink('system/uploads/logo.png');
-            File::resizeCropImage($_FILES['logo']['tmp_name'], 'system/uploads/logo.png', 1078, 200, 100);
-            if (file_exists($_FILES['logo']['tmp_name'])) unlink($_FILES['logo']['tmp_name']);
+            if (function_exists('imagecreatetruecolor')) {
+                if (file_exists('system/uploads/logo.png')) unlink('system/uploads/logo.png');
+                File::resizeCropImage($_FILES['logo']['tmp_name'], 'system/uploads/logo.png', 1078, 200, 100);
+                if (file_exists($_FILES['logo']['tmp_name'])) unlink($_FILES['logo']['tmp_name']);
+            } else {
+                r2(U . 'settings/app', 'e', 'PHP GD is not installed');
+            }
         }
         if ($company == '') {
             r2(U . 'settings/app', 'e', $_L['All_field_is_required']);
@@ -281,6 +309,18 @@ switch ($action) {
                 $d->save();
             }
 
+
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'theme')->find_one();
+            if ($d) {
+                $d->value = $theme;
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'theme';
+                $d->value = $theme;
+                $d->save();
+            }
+
             $d = ORM::for_table('tbl_appconfig')->where('setting', 'CompanyFooter')->find_one();
             if ($d) {
                 $d->value = $footer;
@@ -292,6 +332,16 @@ switch ($action) {
                 $d->save();
             }
 
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'voucher_format')->find_one();
+            if ($d) {
+                $d->value = $voucher_format;
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'voucher_format';
+                $d->value = $voucher_format;
+                $d->save();
+            }
             $d = ORM::for_table('tbl_appconfig')->where('setting', 'disable_voucher')->find_one();
             if ($d) {
                 $d->value = $disable_voucher;
@@ -424,14 +474,38 @@ switch ($action) {
                 $d->save();
             }
 
-            $d = ORM::for_table('tbl_appconfig')->where('setting', 'radius_mode')->find_one();
+            if ($radius_enable) {
+                try {
+                    Radius::getTableNas()->find_one(1);
+                } catch (Exception $e) {
+                    $ui->assign("error_title", "RADIUS Error");
+                    $ui->assign("error_message", "Radius table not found.<br><br>" .
+                        $e->getMessage() .
+                        "<br><br>Download <a href=\"https://raw.githubusercontent.com/hotspotbilling/phpnuxbill/Development/install/radius.sql\">here</a> or <a href=\"https://raw.githubusercontent.com/hotspotbilling/phpnuxbill/master/install/radius.sql\">here</a> and import it to database.<br><br>Check config.php for radius connection details");
+                    $ui->display('router-error.tpl');
+                    die();
+                }
+            }
+
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'radius_enable')->find_one();
             if ($d) {
-                $d->value = $radius_mode;
+                $d->value = $radius_enable;
                 $d->save();
             } else {
                 $d = ORM::for_table('tbl_appconfig')->create();
-                $d->setting = 'radius_mode';
-                $d->value = $radius_mode;
+                $d->setting = 'radius_enable';
+                $d->value = $radius_enable;
+                $d->save();
+            }
+
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'radius_client')->find_one();
+            if ($d) {
+                $d->value = $radius_client;
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'radius_client';
+                $d->value = $radius_client;
                 $d->save();
             }
 
@@ -477,7 +551,6 @@ switch ($action) {
                 $d->save();
             }
 
-
             $d = ORM::for_table('tbl_appconfig')->where('setting', 'country_code_phone')->find_one();
             if ($d) {
                 $d->value = $country_code_phone;
@@ -486,6 +559,37 @@ switch ($action) {
                 $d = ORM::for_table('tbl_appconfig')->create();
                 $d->setting = 'country_code_phone';
                 $d->value = $country_code_phone;
+                $d->save();
+            }
+
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'radius_plan')->find_one();
+            if ($d) {
+                $d->value = _post('radius_plan');
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'radius_plan';
+                $d->value = _post('radius_plan');
+                $d->save();
+            }
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'hotspot_plan')->find_one();
+            if ($d) {
+                $d->value = _post('hotspot_plan');
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'hotspot_plan';
+                $d->value = _post('hotspot_plan');
+                $d->save();
+            }
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'pppoe_plan')->find_one();
+            if ($d) {
+                $d->value = _post('pppoe_plan');
+                $d->save();
+            } else {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'pppoe_plan';
+                $d->value = _post('pppoe_plan');
                 $d->save();
             }
 
@@ -571,20 +675,12 @@ switch ($action) {
 
         $dbc = new mysqli($db_host, $db_user, $db_password, $db_name);
         if ($result = $dbc->query('SHOW TABLE STATUS')) {
-            $size = 0;
-            $decimals = 2;
             $tables = array();
             while ($row = $result->fetch_array()) {
-                $size += $row["Data_length"] + $row["Index_length"];
-                $total_size = ($row["Data_length"] + $row["Index_length"]) / 1024;
-                $tables[$row['Name']]['size'] = number_format($total_size, '0');
-                $tables[$row['Name']]['rows'] = $row["Rows"];
+                $tables[$row['Name']]['rows'] = ORM::for_table($row["Name"])->count();
                 $tables[$row['Name']]['name'] = $row["Name"];
             }
-            $mbytes = number_format($size / (1024 * 1024), $decimals, $config['dec_point'], $config['thousands_sep']);
-
             $ui->assign('tables', $tables);
-            $ui->assign('dbsize', $mbytes);
             run_hook('view_database'); #HOOK
             $ui->display('dbstatus.tpl');
         }
@@ -594,92 +690,52 @@ switch ($action) {
         if ($admin['user_type'] != 'Admin') {
             r2(U . "dashboard", 'e', $_L['Do_Not_Access']);
         }
-
-        try {
-            run_hook('backup_database'); #HOOK
-            $mysqli = new mysqli($db_host, $db_user, $db_password, $db_name);
-            if ($mysqli->connect_errno) {
-                throw new Exception("Failed to connect to MySQL: " . $mysqli->connect_error);
-            }
-
-            header('Pragma: public');
-            header('Expires: 0');
-            header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-            header('Content-Type: application/force-download');
-            header('Content-Type: application/octet-stream');
-            header('Content-Type: application/download');
-            header('Content-Disposition: attachment;filename="backup_' . date('Y-m-d_h_i_s') . '.sql"');
-            header('Content-Transfer-Encoding: binary');
-
-            ob_start();
-            $f_output = fopen("php://output", 'w');
-
-            print("-- pjl SQL Dump\n");
-            print("-- Server version:" . $mysqli->server_info . "\n");
-            print("-- Generated: " . date('Y-m-d h:i:s') . "\n");
-            print('-- Current PHP version: ' . phpversion() . "\n");
-            print('-- Host: ' . $db_host . "\n");
-            print('-- Database:' . $db_name . "\n");
-
-            $aTables = array();
-            $strSQL = 'SHOW TABLES';
-            if (!$res_tables = $mysqli->query($strSQL))
-                throw new Exception("MySQL Error: " . $mysqli->error . 'SQL: ' . $strSQL);
-
-            while ($row = $res_tables->fetch_array()) {
-                $aTables[] = $row[0];
-            }
-
-            $res_tables->free();
-
-            foreach ($aTables as $table) {
-                print("-- --------------------------------------------------------\n");
-                print("-- Structure for '" . $table . "'\n");
-                print("--\n\n");
-
-                $strSQL = 'SHOW CREATE TABLE ' . $table;
-                if (!$res_create = $mysqli->query($strSQL))
-                    throw new Exception("MySQL Error: " . $mysqli->error . 'SQL: ' . $strSQL);
-                $row_create = $res_create->fetch_assoc();
-
-                print("\n" . $row_create['Create Table'] . ";\n");
-                print("-- --------------------------------------------------------\n");
-                print('-- Dump Data for `' . $table . "`\n");
-                print("--\n\n");
-                $res_create->free();
-
-                $strSQL = 'SELECT * FROM ' . $table;
-                if (!$res_select = $mysqli->query($strSQL))
-                    throw new Exception("MySQL Error: " . $mysqli->error . 'SQL: ' . $strSQL);
-
-                $fields_info = $res_select->fetch_fields();
-
-                while ($values = $res_select->fetch_assoc()) {
-                    $strFields = '';
-                    $strValues = '';
-                    foreach ($fields_info as $field) {
-                        if ($strFields != '') $strFields .= ',';
-                        $strFields .= "`" . $field->name . "`";
-
-                        if ($strValues != '') $strValues .= ',';
-                        $strValues .= '"' . preg_replace('/[^(\x20-\x7F)\x0A]*/', '', $values[$field->name] . '"');
-                    }
-                    print("INSERT INTO " . $table . " (" . $strFields . ") VALUES (" . $strValues . ");\n");
-                }
-                print("\n\n\n");
-                $res_select->free();
-            }
-            _log('[' . $admin['username'] . ']: ' . $_L['Download_Database_Backup'], 'Admin', $admin['id']);
-        } catch (Exception $e) {
-            print($e->getMessage());
+        $tables = $_POST['tables'];
+        set_time_limit(-1);
+        header('Pragma: public');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Content-Type: application/force-download');
+        header('Content-Type: application/octet-stream');
+        header('Content-Type: application/download');
+        header('Content-Disposition: attachment;filename="phpnuxbill_' . count($tables) . '_tables_' . date('Y-m-d_H_i') . '.json"');
+        header('Content-Transfer-Encoding: binary');
+        $array = [];
+        foreach ($tables as $table) {
+            $array[$table] = ORM::for_table($table)->find_array();
         }
-
-        fclose($f_output);
-        print(ob_get_clean());
-        $mysqli->close();
-
+        echo json_encode($array);
         break;
-
+    case 'dbrestore':
+        if ($admin['user_type'] != 'Admin') {
+            r2(U . "dashboard", 'e', $_L['Do_Not_Access']);
+        }
+        if (file_exists($_FILES['json']['tmp_name'])) {
+            $suc = 0;
+            $fal = 0;
+            $json = json_decode(file_get_contents($_FILES['json']['tmp_name']), true);
+            foreach ($json as $table => $records) {
+                ORM::raw_execute("TRUNCATE $table;");
+                foreach ($records as $rec) {
+                    $t = ORM::for_table($table)->create();
+                    foreach ($rec as $k => $v) {
+                        if ($k != 'id') {
+                            $t->set($k, $v);
+                        }
+                    }
+                    if ($t->save()) {
+                        $suc++;
+                    } else {
+                        $fal++;
+                    }
+                }
+            }
+            if (file_exists($_FILES['json']['tmp_name'])) unlink($_FILES['json']['tmp_name']);
+            r2(U . "settings/dbstatus", 's', "Restored $suc success $fal failed");
+        } else {
+            r2(U . "settings/dbstatus", 'e', 'Upload failed');
+        }
+        break;
     case 'language':
         if ($admin['user_type'] != 'Admin') {
             r2(U . "dashboard", 'e', $_L['Do_Not_Access']);
@@ -716,5 +772,5 @@ switch ($action) {
         break;
 
     default:
-        echo 'action not defined';
+        $ui->display('a404.tpl');
 }

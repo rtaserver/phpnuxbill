@@ -28,11 +28,12 @@
             background: yellow;
         }
 
-        .content-wrapper{
+        .content-wrapper {
             margin-top: 50px;
         }
+
         @media (max-width: 767px) {
-            .content-wrapper{
+            .content-wrapper {
                 margin-top: 100px;
             }
         }
@@ -55,23 +56,24 @@
                 <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
                     <span class="sr-only">Toggle navigation</span>
                 </a>
-                {if $_c['enable_balance'] == 'yes'}
-                    <p class="navbar-text text-white" style="float: inline-start; color: whitesmoke; text-align: center !important;">{Lang::T('Balance')} {Lang::moneyFormat($_user['balance'])}</p>
-                {/if}
                 <div class="navbar-custom-menu">
                     <ul class="nav navbar-nav">
                         <li class="dropdown user user-menu">
                             <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                {if $_c['enable_balance'] == 'yes'}
+                                    <span style="color: whitesmoke;">&nbsp;{Lang::moneyFormat($_user['balance'])}&nbsp;</span>
+                                {else}
+                                    <span>{$_user['fullname']}</span>
+                                {/if}
                                 <img src="https://robohash.org/{$_user['id']}?set=set3&size=100x100&bgset=bg1"
-                                    onerror="this.src='system/uploads/user.default.jpg'"
-                                    class="user-image" alt="User Image">
-                                <span class="hidden-xs">{$_user['fullname']}</span>
+                                    onerror="this.src='system/uploads/user.default.jpg'" class="user-image"
+                                    alt="User Image">
                             </a>
                             <ul class="dropdown-menu">
                                 <li class="user-header">
                                     <img src="https://robohash.org/{$_user['id']}?set=set3&size=100x100&bgset=bg1"
-                                        onerror="this.src='system/uploads/user.default.jpg'"
-                                        class="img-circle" alt="User Image">
+                                        onerror="this.src='system/uploads/user.default.jpg'" class="img-circle"
+                                        alt="User Image">
 
                                     <p>
                                         {$_user['fullname']}
@@ -115,14 +117,22 @@
                     </li>
                     {$_MENU_AFTER_DASHBOARD}
                     {if $_c['disable_voucher'] != 'yes'}
-                    <li {if $_system_menu eq 'voucher'}class="active" {/if}>
-                        <a href="{$_url}voucher/activation">
-                            <i class="fa fa-ticket"></i>
-                            <span>{Lang::T('Voucher')}</span>
-                        </a>
-                    </li>
+                        <li {if $_system_menu eq 'voucher'}class="active" {/if}>
+                            <a href="{$_url}voucher/activation">
+                                <i class="fa fa-ticket"></i>
+                                <span>{Lang::T('Voucher')}</span>
+                            </a>
+                        </li>
                     {/if}
                     {if $_c['payment_gateway'] != 'none' or $_c['payment_gateway'] == '' }
+                        {if $_c['enable_balance'] == 'yes'}
+                            <li {if $_system_menu eq 'balance'}class="active" {/if}>
+                                <a href="{$_url}order/balance">
+                                    <i class="ion ion-ios-cart"></i>
+                                    <span>{Lang::T('Buy Balance')}</span>
+                                </a>
+                            </li>
+                        {/if}
                         <li {if $_system_menu eq 'package'}class="active" {/if}>
                             <a href="{$_url}order/package">
                                 <i class="ion ion-ios-cart"></i>
@@ -155,4 +165,12 @@
                 </h1>
             </section>
             <section class="content">
-{if isset($notify)}{$notify}{/if}
+
+{if isset($notify)}
+<div class="alert alert-{if $notify_t == 's'}success{else}danger{/if}">
+    <button type="button" class="close" data-dismiss="alert">
+    <span aria-hidden="true">×</span>
+    </button>
+    <div>{$notify}</div>
+</div>
+{/if}

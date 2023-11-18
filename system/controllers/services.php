@@ -1,8 +1,8 @@
 <?php
 
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
-
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 _admin();
 $ui->assign('_title', $_L['Hotspot_Plans']);
@@ -21,15 +21,109 @@ use PEAR2\Net\RouterOS;
 require_once 'system/autoload/PEAR2/Autoload.php';
 
 switch ($action) {
+    case 'sync':
+        set_time_limit(-1);
+        if ($routes['2'] == 'hotspot') {
+            $plans = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'Hotspot')->where('tbl_plans.enabled', '1')->find_many();
+            $log = '';
+            $router = '';
+            foreach ($plans as $plan) {
+                if ($plan['is_radius']) {
+                    if ($b['rate_down_unit'] == 'Kbps') {
+                        $raddown = '000';
+                    } else {
+                        $raddown = '000000';
+                    }
+                    if ($b['rate_up_unit'] == 'Kbps') {
+                        $radup = '000';
+                    } else {
+                        $radup = '000000';
+                    }
+                    $radiusRate = $plan['rate_up'] . $radup . '/' . $plan['rate_down'] . $raddown;
+                    Radius::planUpSert($plan['id'], $radiusRate);
+                    $log .= "DONE : Radius $plan[name_plan], $plan[shared_users], $radiusRate<br>";
+                } else {
+                    if ($router != $plan['routers']) {
+                        $mikrotik = Mikrotik::info($plan['routers']);
+                        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                        $router = $plan['routers'];
+                    }
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $unitdown = 'K';
+                    } else {
+                        $unitdown = 'M';
+                    }
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $unitup = 'K';
+                    } else {
+                        $unitup = 'M';
+                    }
+                    $rate = $plan['rate_up'] . $unitup . "/" . $plan['rate_down'] . $unitdown;
+                    Mikrotik::addHotspotPlan($client, $plan['name_plan'], $plan['shared_users'], $rate);
+                    $log .= "DONE : $plan[name_plan], $plan[shared_users], $rate<br>";
+                    if (!empty($plan['pool_expired'])) {
+                        Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED NUXBILL ' . $plan['pool_expired'], $plan['pool_expired']);
+                        $log .= "DONE Expired : EXPIRED NUXBILL $plan[pool_expired]<br>";
+                    }
+                }
+            }
+            r2(U . 'services/hotspot', 's', $log);
+        } else if ($routes['2'] == 'pppoe') {
+            $plans = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'PPPOE')->where('tbl_plans.enabled', '1')->find_many();
+            $log = '';
+            $router = '';
+            foreach ($plans as $plan) {
+                if ($plan['is_radius']) {
+                    if ($b['rate_down_unit'] == 'Kbps') {
+                        $raddown = '000';
+                    } else {
+                        $raddown = '000000';
+                    }
+                    if ($b['rate_up_unit'] == 'Kbps') {
+                        $radup = '000';
+                    } else {
+                        $radup = '000000';
+                    }
+                    $radiusRate = $plan['rate_up'] . $radup . '/' . $plan['rate_down'] . $raddown;
+                    Radius::planUpSert($plan['id'], $radiusRate, $plan['pool']);
+                    $log .= "DONE : RADIUS $plan[name_plan], $plan[pool], $rate<br>";
+                } else {
+                    if ($router != $plan['routers']) {
+                        $mikrotik = Mikrotik::info($plan['routers']);
+                        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                        $router = $plan['routers'];
+                    }
+                    if ($plan['rate_down_unit'] == 'Kbps') {
+                        $unitdown = 'K';
+                    } else {
+                        $unitdown = 'M';
+                    }
+                    if ($plan['rate_up_unit'] == 'Kbps') {
+                        $unitup = 'K';
+                    } else {
+                        $unitup = 'M';
+                    }
+                    $rate = $plan['rate_up'] . $unitup . "/" . $plan['rate_down'] . $unitdown;
+                    Mikrotik::addPpoePlan($client, $plan['name_plan'], $plan['pool'], $rate);
+                    $log .= "DONE : $plan[name_plan], $plan[pool], $rate<br>";
+                    if (!empty($plan['pool_expired'])) {
+                        Mikrotik::setPpoePlan($client, 'EXPIRED NUXBILL ' . $plan['pool_expired'], $plan['pool_expired'], '512K/512K');
+                        $log .= "DONE Expired : EXPIRED NUXBILL $plan[pool_expired]<br>";
+                    }
+                }
+            }
+            r2(U . 'services/pppoe', 's', $log);
+        }
+        r2(U . 'services/hotspot', 'w', 'Unknown command');
     case 'hotspot':
         $ui->assign('xfooter', '<script type="text/javascript" src="ui/lib/c/hotspot.js"></script>');
 
         $name = _post('name');
         if ($name != '') {
-            $paginator = Paginator::bootstrap('tbl_plans', 'name_plan', '%' . $name . '%', 'type', 'Hotspot');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['name_plan' => '%' . $name . '%', 'type' => 'Hotspot'], $name);
             $d = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'Hotspot')->where_like('tbl_plans.name_plan', '%' . $name . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_plans', 'type', 'Hotspot');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['type' => 'Hotspot']);
             $d = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'Hotspot')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         }
 
@@ -70,10 +164,16 @@ switch ($action) {
         $d = ORM::for_table('tbl_plans')->find_one($id);
         if ($d) {
             run_hook('delete_plan'); #HOOK
-            if (!$config['radius_mode']) {
-                $mikrotik = Mikrotik::info($d['routers']);
-                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                Mikrotik::removeHotspotPlan($client, $d['name_plan']);
+            if ($d['is_radius']) {
+                Radius::planDelete($d['id']);
+            } else {
+                try {
+                    $mikrotik = Mikrotik::info($d['routers']);
+                    $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                    Mikrotik::removeHotspotPlan($client, $d['name_plan']);
+                } catch (Exception $e) {
+                    //ignore exception, it means router has already deleted
+                }
             }
 
             $d->delete();
@@ -84,6 +184,7 @@ switch ($action) {
 
     case 'add-post':
         $name = _post('name');
+        $radius = _post('radius');
         $typebp = _post('typebp');
         $limit_type = _post('limit_type');
         $time_limit = _post('time_limit');
@@ -106,10 +207,14 @@ switch ($action) {
         if (Validator::UnsignedNumber($price) == false) {
             $msg .= 'The price must be a number' . '<br>';
         }
-        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $routers == '') {
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '') {
             $msg .= $_L['All_field_is_required'] . '<br>';
         }
-
+        if (empty($radius)) {
+            if ($routers == '') {
+                $msg .= $_L['All_field_is_required'] . '<br>';
+            }
+        }
         $d = ORM::for_table('tbl_plans')->where('name_plan', $name)->where('type', 'Hotspot')->find_one();
         if ($d) {
             $msg .= $_L['Plan_already_exist'] . '<br>';
@@ -121,25 +226,20 @@ switch ($action) {
             $b = ORM::for_table('tbl_bandwidth')->where('id', $id_bw)->find_one();
             if ($b['rate_down_unit'] == 'Kbps') {
                 $unitdown = 'K';
+                $raddown = '000';
             } else {
                 $unitdown = 'M';
+                $raddown = '000000';
             }
             if ($b['rate_up_unit'] == 'Kbps') {
                 $unitup = 'K';
+                $radup = '000';
             } else {
                 $unitup = 'M';
+                $radup = '000000';
             }
             $rate = $b['rate_up'] . $unitup . "/" . $b['rate_down'] . $unitdown;
-
-            if (!$config['radius_mode']) {
-                $mikrotik = Mikrotik::info($routers);
-                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                Mikrotik::addHotspotPlan($client, $name, $sharedusers, $rate);
-                if(!empty($pool_expired)){
-                    Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED NUXBILL '.$pool_expired, $pool_expired);
-                }
-            }
-
+            $radiusRate = $b['rate_up'] . $radup . '/' . $b['rate_down'] . $raddown;
 
             $d = ORM::for_table('tbl_plans')->create();
             $d->name_plan = $name;
@@ -155,10 +255,29 @@ switch ($action) {
             $d->validity = $validity;
             $d->validity_unit = $validity_unit;
             $d->shared_users = $sharedusers;
-            $d->routers = $routers;
-            $d->pool_expired = $pool_expired;
+            if (!empty($radius)) {
+                $d->is_radius = 1;
+                $d->routers = '';
+            } else {
+                $d->is_radius = 0;
+                $d->routers = $routers;
+                $d->pool_expired = $pool_expired;
+            }
             $d->enabled = $enabled;
             $d->save();
+            $plan_id = $d->id();
+
+            if ($d['is_radius']) {
+                Radius::planUpSert($plan_id, $radiusRate);
+            } else {
+                $mikrotik = Mikrotik::info($routers);
+                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                Mikrotik::addHotspotPlan($client, $name, $sharedusers, $rate);
+                if (!empty($pool_expired)) {
+                    Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED NUXBILL ' . $pool_expired, $pool_expired);
+                }
+            }
+
 
             r2(U . 'services/hotspot', 's', $_L['Created_Successfully']);
         } else {
@@ -181,10 +300,9 @@ switch ($action) {
         $sharedusers = _post('sharedusers');
         $validity = _post('validity');
         $validity_unit = _post('validity_unit');
-        $routers = _post('routers');
         $pool_expired = _post('pool_expired');
         $enabled = _post('enabled');
-
+        $routers = _post('routers');
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
             $msg .= 'The validity must be a number' . '<br>';
@@ -192,10 +310,9 @@ switch ($action) {
         if (Validator::UnsignedNumber($price) == false) {
             $msg .= 'The price must be a number' . '<br>';
         }
-        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $routers == '') {
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '') {
             $msg .= $_L['All_field_is_required'] . '<br>';
         }
-
         $d = ORM::for_table('tbl_plans')->where('id', $id)->find_one();
         if ($d) {
         } else {
@@ -206,22 +323,29 @@ switch ($action) {
             $b = ORM::for_table('tbl_bandwidth')->where('id', $id_bw)->find_one();
             if ($b['rate_down_unit'] == 'Kbps') {
                 $unitdown = 'K';
+                $raddown = '000';
             } else {
                 $unitdown = 'M';
+                $raddown = '000000';
             }
             if ($b['rate_up_unit'] == 'Kbps') {
                 $unitup = 'K';
+                $radup = '000';
             } else {
                 $unitup = 'M';
+                $radup = '000000';
             }
             $rate = $b['rate_up'] . $unitup . "/" . $b['rate_down'] . $unitdown;
+            $radiusRate = $b['rate_up'] . $radup . '/' . $b['rate_down'] . $raddown;
 
-            if (!$config['radius_mode']) {
+            if ($d['is_radius']) {
+                Radius::planUpSert($id, $radiusRate);
+            } else {
                 $mikrotik = Mikrotik::info($routers);
                 $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                 Mikrotik::setHotspotPlan($client, $name, $sharedusers, $rate);
-                if(!empty($pool_expired)){
-                    Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED NUXBILL '.$pool_expired, $pool_expired);
+                if (!empty($pool_expired)) {
+                    Mikrotik::setHotspotExpiredPlan($client, 'EXPIRED NUXBILL ' . $pool_expired, $pool_expired);
                 }
             }
 
@@ -237,7 +361,6 @@ switch ($action) {
             $d->validity = $validity;
             $d->validity_unit = $validity_unit;
             $d->shared_users = $sharedusers;
-            $d->routers = $routers;
             $d->pool_expired = $pool_expired;
             $d->enabled = $enabled;
             $d->save();
@@ -254,10 +377,10 @@ switch ($action) {
 
         $name = _post('name');
         if ($name != '') {
-            $paginator = Paginator::bootstrap('tbl_plans', 'name_plan', '%' . $name . '%', 'type', 'Hotspot');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['name_plan' => '%' . $name . '%', 'type' => 'PPPOE'], $name);
             $d = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'PPPOE')->where_like('tbl_plans.name_plan', '%' . $name . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_plans', 'type', 'Hotspot');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['type' => 'PPPOE'], $name);
             $d = ORM::for_table('tbl_bandwidth')->join('tbl_plans', array('tbl_bandwidth.id', '=', 'tbl_plans.id_bw'))->where('tbl_plans.type', 'PPPOE')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         }
 
@@ -283,11 +406,14 @@ switch ($action) {
         $d = ORM::for_table('tbl_plans')->find_one($id);
         if ($d) {
             $ui->assign('d', $d);
-            $p = ORM::for_table('tbl_pool')->where('routers', $d['routers'])->find_many();
+            $p = ORM::for_table('tbl_pool')->where('routers', ($d['is_radius']) ? 'radius' : $d['routers'])->find_many();
             $ui->assign('p', $p);
             $b = ORM::for_table('tbl_bandwidth')->find_many();
             $ui->assign('b', $b);
-            $r = ORM::for_table('tbl_routers')->find_many();
+            $r = [];
+            if ($d['is_radius']) {
+                $r = ORM::for_table('tbl_routers')->find_many();
+            }
             $ui->assign('r', $r);
             run_hook('view_edit_ppoe'); #HOOK
             $ui->display('pppoe-edit.tpl');
@@ -302,10 +428,16 @@ switch ($action) {
         $d = ORM::for_table('tbl_plans')->find_one($id);
         if ($d) {
             run_hook('delete_ppoe'); #HOOK
-            if (!$config['radius_mode']) {
-                $mikrotik = Mikrotik::info($d['routers']);
-                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                Mikrotik::removePpoePlan($client, $d['name_plan']);
+            if ($d['is_radius']) {
+                Radius::planDelete($d['id']);
+            } else {
+                try {
+                    $mikrotik = Mikrotik::info($d['routers']);
+                    $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                    Mikrotik::removePpoePlan($client, $d['name_plan']);
+                } catch (Exception $e) {
+                    //ignore exception, it means router has already deleted
+                }
             }
             $d->delete();
 
@@ -315,6 +447,7 @@ switch ($action) {
 
     case 'pppoe-add-post':
         $name = _post('name_plan');
+        $radius = _post('radius');
         $id_bw = _post('id_bw');
         $price = _post('price');
         $validity = _post('validity');
@@ -331,8 +464,13 @@ switch ($action) {
         if (Validator::UnsignedNumber($price) == false) {
             $msg .= 'The price must be a number' . '<br>';
         }
-        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $routers == '' or $pool == '') {
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $pool == '') {
             $msg .= $_L['All_field_is_required'] . '<br>';
+        }
+        if (empty($radius)) {
+            if ($routers == '') {
+                $msg .= $_L['All_field_is_required'] . '<br>';
+            }
         }
 
         $d = ORM::for_table('tbl_plans')->where('name_plan', $name)->find_one();
@@ -344,24 +482,20 @@ switch ($action) {
             $b = ORM::for_table('tbl_bandwidth')->where('id', $id_bw)->find_one();
             if ($b['rate_down_unit'] == 'Kbps') {
                 $unitdown = 'K';
+                $raddown = '000';
             } else {
                 $unitdown = 'M';
+                $raddown = '000000';
             }
             if ($b['rate_up_unit'] == 'Kbps') {
                 $unitup = 'K';
+                $radup = '000';
             } else {
                 $unitup = 'M';
+                $radup = '000000';
             }
             $rate = $b['rate_up'] . $unitup . "/" . $b['rate_down'] . $unitdown;
-
-            if (!$config['radius_mode']) {
-                $mikrotik = Mikrotik::info($routers);
-                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-                Mikrotik::addPpoePlan($client, $name, $pool, $rate);
-                if(!empty($pool_expired)){
-                    Mikrotik::setPpoePlan($client, 'EXPIRED NUXBILL '.$pool_expired, $pool_expired, '512K/512K');
-                }
-            }
+            $radiusRate = $b['rate_up'] . $radup . '/' . $b['rate_down'] . $raddown;
 
             $d = ORM::for_table('tbl_plans')->create();
             $d->type = 'PPPOE';
@@ -370,11 +504,29 @@ switch ($action) {
             $d->price = $price;
             $d->validity = $validity;
             $d->validity_unit = $validity_unit;
-            $d->routers = $routers;
             $d->pool = $pool;
-            $d->pool_expired = $pool_expired;
+            if (!empty($radius)) {
+                $d->is_radius = 1;
+                $d->routers = '';
+            } else {
+                $d->is_radius = 0;
+                $d->routers = $routers;
+                $d->pool_expired = $pool_expired;
+            }
             $d->enabled = $enabled;
             $d->save();
+            $plan_id = $d->id();
+
+            if ($d['is_radius']) {
+                Radius::planUpSert($plan_id, $radiusRate, $pool);
+            } else {
+                $mikrotik = Mikrotik::info($routers);
+                $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+                Mikrotik::addPpoePlan($client, $name, $pool, $rate);
+                if (!empty($pool_expired)) {
+                    Mikrotik::setPpoePlan($client, 'EXPIRED NUXBILL ' . $pool_expired, $pool_expired, '512K/512K');
+                }
+            }
 
             r2(U . 'services/pppoe', 's', $_L['Created_Successfully']);
         } else {
@@ -401,7 +553,7 @@ switch ($action) {
         if (Validator::UnsignedNumber($price) == false) {
             $msg .= 'The price must be a number' . '<br>';
         }
-        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $routers == '' or $pool == '') {
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '' or $pool == '') {
             $msg .= $_L['All_field_is_required'] . '<br>';
         }
 
@@ -415,22 +567,29 @@ switch ($action) {
             $b = ORM::for_table('tbl_bandwidth')->where('id', $id_bw)->find_one();
             if ($b['rate_down_unit'] == 'Kbps') {
                 $unitdown = 'K';
+                $raddown = '000';
             } else {
                 $unitdown = 'M';
+                $raddown = '000000';
             }
             if ($b['rate_up_unit'] == 'Kbps') {
                 $unitup = 'K';
+                $radup = '000';
             } else {
                 $unitup = 'M';
+                $radup = '000000';
             }
             $rate = $b['rate_up'] . $unitup . "/" . $b['rate_down'] . $unitdown;
+            $radiusRate = $b['rate_up'] . $radup . '/' . $b['rate_down'] . $raddown;
 
-            if (!$config['radius_mode']) {
+            if ($d['is_radius']) {
+                Radius::planUpSert($id, $radiusRate, $pool);
+            } else {
                 $mikrotik = Mikrotik::info($routers);
                 $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
                 Mikrotik::setPpoePlan($client, $name, $pool, $rate);
-                if(!empty($pool_expired)){
-                    Mikrotik::setPpoePlan($client, 'EXPIRED NUXBILL '.$pool_expired, $pool_expired, '512K/512K');
+                if (!empty($pool_expired)) {
+                    Mikrotik::setPpoePlan($client, 'EXPIRED NUXBILL ' . $pool_expired, $pool_expired, '512K/512K');
                 }
             }
 
@@ -454,10 +613,10 @@ switch ($action) {
         $ui->assign('_title', Lang::T('Balance Plans'));
         $name = _post('name');
         if ($name != '') {
-            $paginator = Paginator::bootstrap('tbl_plans', 'name_plan', '%' . $name . '%', 'type', 'Balance');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['name_plan' => '%' . $name . '%', 'type' => 'Balance'], $name);
             $d = ORM::for_table('tbl_plans')->where('tbl_plans.type', 'Balance')->where_like('tbl_plans.name_plan', '%' . $name . '%')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         } else {
-            $paginator = Paginator::bootstrap('tbl_plans', 'type', 'Hotspot');
+            $paginator = Paginator::build(ORM::for_table('tbl_plans'), ['type' => 'Balance'], $name);
             $d = ORM::for_table('tbl_plans')->where('tbl_plans.type', 'Balance')->offset($paginator['startpoint'])->limit($paginator['limit'])->find_many();
         }
 
@@ -557,5 +716,5 @@ switch ($action) {
         }
         break;
     default:
-        echo 'action not defined';
+        $ui->display('a404.tpl');
 }

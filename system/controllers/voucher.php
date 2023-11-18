@@ -1,8 +1,7 @@
 <?php
-
 /**
- * PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
-
+ *  PHP Mikrotik Billing (https://github.com/hotspotbilling/phpnuxbill/)
+ *  by https://t.me/ibnux
  **/
 _auth();
 $ui->assign('_title', $_L['Voucher']);
@@ -43,7 +42,7 @@ switch ($action) {
 
     case 'list-activated':
         $ui->assign('_system_menu', 'list-activated');
-        $paginator = Paginator::bootstrap('tbl_transactions', 'username', $user['username']);
+        $paginator = Paginator::build(ORM::for_table('tbl_transactions'), ['username' => $user['username']]);
         $d = ORM::for_table('tbl_transactions')->where('username', $user['username'])->offset($paginator['startpoint'])->limit($paginator['limit'])->order_by_desc('id')->find_many();
 
         $ui->assign('d', $d);
@@ -54,5 +53,5 @@ switch ($action) {
         break;
 
     default:
-        $ui->display('404.tpl');
+        $ui->display('a404.tpl');
 }

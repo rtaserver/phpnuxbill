@@ -22,10 +22,11 @@
             <hr>
         </div>
         {if isset($notify)}
-            <div class="row">
-                <div class="col-md-6 col-md-offset-3">
-                    {$notify}
-                </div>
+            <div class="alert alert-{if $notify_t == 's'}success{else}danger{/if}">
+                <button type="button" class="close" data-dismiss="alert">
+                    <span aria-hidden="true">×</span>
+                </button>
+                <div>{$notify}</div>
             </div>
         {/if}
         <div class="row">
@@ -86,19 +87,41 @@
                                 </div>
                                 <br>
                                 <div class="btn-group btn-group-justified mb15">
-                                <div class="btn-group">
-                                    <a href="{$_url}login" class="btn btn-warning">{$_L['Cancel']}</a>
-                                </div>
+                                    <div class="btn-group">
+                                        <a href="{$_url}login" class="btn btn-warning">{$_L['Cancel']}</a>
+                                    </div>
                                     <div class="btn-group">
                                         <button class="btn btn-success waves-effect waves-light"
                                             type="submit">{$_L['Register']}</button>
                                     </div>
                                 </div>
+                                <br>
+                                <center>
+                                    <a href="javascript:showPrivacy()">Privacy</a>
+                                    &bull;
+                                    <a href="javascript:showTaC()">T &amp; C</a>
+                                </center>
                             </div>
                         </div>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="HTMLModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body" id="HTMLModal_konten"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">&times;</button>
+                </div>
+            </div>
         </div>
     </div>
     {if $_c['tawkto'] != ''}
@@ -118,7 +141,7 @@
         </script>
         <!--End of Tawk.to Script-->
     {/if}
-    <script src="ui/ui/scripts/vendors.js"></script>
+    <script src="ui/ui/scripts/vendors.js?v=1"></script>
 </body>
 
 </html>
