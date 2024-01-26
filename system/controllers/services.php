@@ -173,6 +173,8 @@ switch ($action) {
                     Mikrotik::removeHotspotPlan($client, $d['name_plan']);
                 } catch (Exception $e) {
                     //ignore exception, it means router has already deleted
+                } catch(Throwable $e){
+                    //ignore exception, it means router has already deleted
                 }
             }
 
@@ -199,6 +201,7 @@ switch ($action) {
         $routers = _post('routers');
         $pool_expired = _post('pool_expired');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
 
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -264,6 +267,7 @@ switch ($action) {
                 $d->pool_expired = $pool_expired;
             }
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
             $plan_id = $d->id();
 
@@ -302,6 +306,7 @@ switch ($action) {
         $validity_unit = _post('validity_unit');
         $pool_expired = _post('pool_expired');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
         $routers = _post('routers');
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -363,6 +368,7 @@ switch ($action) {
             $d->shared_users = $sharedusers;
             $d->pool_expired = $pool_expired;
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
 
             r2(U . 'services/hotspot', 's', $_L['Updated_Successfully']);
@@ -437,6 +443,8 @@ switch ($action) {
                     Mikrotik::removePpoePlan($client, $d['name_plan']);
                 } catch (Exception $e) {
                     //ignore exception, it means router has already deleted
+                } catch(Throwable $e){
+                    //ignore exception, it means router has already deleted
                 }
             }
             $d->delete();
@@ -456,6 +464,8 @@ switch ($action) {
         $pool = _post('pool_name');
         $pool_expired = _post('pool_expired');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
+
 
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -514,6 +524,7 @@ switch ($action) {
                 $d->pool_expired = $pool_expired;
             }
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
             $plan_id = $d->id();
 
@@ -545,6 +556,7 @@ switch ($action) {
         $pool = _post('pool_name');
         $pool_expired = _post('pool_expired');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
 
         $msg = '';
         if (Validator::UnsignedNumber($validity) == false) {
@@ -602,6 +614,7 @@ switch ($action) {
             $d->pool = $pool;
             $d->pool_expired = $pool_expired;
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
 
             r2(U . 'services/pppoe', 's', $_L['Updated_Successfully']);
@@ -653,6 +666,7 @@ switch ($action) {
         $name = _post('name');
         $price = _post('price');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
 
         $msg = '';
         if (Validator::UnsignedNumber($price) == false) {
@@ -672,6 +686,7 @@ switch ($action) {
             $d->name_plan = $name;
             $d->price = $price;
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
 
             r2(U . 'services/balance', 's', $_L['Updated_Successfully']);
@@ -683,6 +698,7 @@ switch ($action) {
         $name = _post('name');
         $price = _post('price');
         $enabled = _post('enabled');
+        $allow_purchase = _post('allow_purchase');
 
         $msg = '';
         if (Validator::UnsignedNumber($price) == false) {
@@ -708,6 +724,7 @@ switch ($action) {
             $d->routers = '';
             $d->pool = '';
             $d->enabled = $enabled;
+            $d->allow_purchase = $allow_purchase;
             $d->save();
 
             r2(U . 'services/balance', 's', $_L['Created_Successfully']);

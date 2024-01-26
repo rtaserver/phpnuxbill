@@ -9,12 +9,15 @@
                     <div class="form-group">
                         <label class="col-md-2 control-label">{Lang::T('Status')}</label>
                         <div class="col-md-10">
-                            <label class="radio-inline warning">
-                                <input type="radio" checked name="enabled" value="1"> Enable
-                            </label>
-                            <label class="radio-inline">
-                                <input type="radio" name="enabled" value="0"> Disable
-                            </label>
+                            <input type="radio" name="enabled" value="1" checked> Enable
+                            <input type="radio" name="enabled" value="0"> Disable
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2 control-label">{Lang::T('Client Can Purchase')}</label>
+                        <div class="col-md-10">
+                            <input type="radio" name="allow_purchase" value="yes" checked> Yes
+                            <input type="radio" name="allow_purchase" value="no"> No
                         </div>
                     </div>
                     {if $_c['radius_enable']}
@@ -172,21 +175,20 @@
                 if (cek.checked) {
                     $("#routerChoose").addClass('hidden');
                     document.getElementById("routers").required = false;
+                    $("#pool_expired").html('');
+                    $.ajax({
+                        url: "index.php?_route=autoload/pool",
+                        data: "routers=radius",
+                        cache: false,
+                        success: function(msg) {
+                            $("#pool_expired").html(msg);
+                        }
+                    });
                 } else {
                     document.getElementById("routers").required = true;
                     $("#routerChoose").removeClass('hidden');
                 }
             }
-            setTimeout(() => {
-                $.ajax({
-                    url: "index.php?_route=autoload/pool",
-                    data: "routers=radius",
-                    cache: false,
-                    success: function(msg) {
-                        $("#pool_expired").html(msg);
-                    }
-                });
-            }, 2000);
         </script>
     {/literal}
 {/if}

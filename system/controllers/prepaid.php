@@ -159,7 +159,7 @@ switch ($action) {
     case 'print':
         $id = _post('id');
         $d = ORM::for_table('tbl_transactions')->where('id', $id)->find_one();
-        $ui->assign('d', $d);
+        $ui->assign('in', $d);
 
         $ui->assign('date', Lang::dateAndTimeFormat($d['recharged_on'], $d['recharged_time']));
         run_hook('print_invoice'); #HOOK
@@ -219,7 +219,7 @@ switch ($action) {
         } else {
             $msg .= $_L['Data_Not_Found'] . '<br>';
         }
-        $p = ORM::for_table('tbl_plans')->where('id', $plan_id)->where('enabled', '1')->find_one();
+        $p = ORM::for_table('tbl_plans')->where('id', $id_plan)->where('enabled', '1')->find_one();
         if ($d) {
         } else {
             $msg .= ' Plan Not Found<br>';
@@ -231,7 +231,11 @@ switch ($action) {
             //$d->recharged_on = $recharged_on;
             $d->expiration = $expiration;
             $d->time = $time;
-            $d->routers = $p['routers'];
+            if($p['is_radius']){
+                $d->routers = 'radius';
+            }else{
+                $d->routers = $p['routers'];
+            }
             $d->save();
             Package::changeTo($username, $id_plan, $id);
             _log('[' . $admin['username'] . ']: ' . 'Edit Plan for Customer ' . $d['username'] . ' to [' . $d['plan_name'] . '][' . Lang::moneyFormat($d['price']) . ']', 'Admin', $admin['id']);
@@ -243,7 +247,7 @@ switch ($action) {
 
     case 'voucher':
         $ui->assign('xfooter', '<script type="text/javascript" src="ui/lib/c/voucher.js"></script>');
-
+        $ui->assign('_title', $_L['Prepaid_Vouchers']);
         $code = _post('code');
         if ($code != '') {
             $ui->assign('code', $code);
@@ -270,7 +274,7 @@ switch ($action) {
         break;
 
     case 'add-voucher':
-
+        $ui->assign('_title', $_L['Add_Voucher']);
         $c = ORM::for_table('tbl_customers')->find_many();
         $ui->assign('c', $c);
         $p = ORM::for_table('tbl_plans')->where('enabled', '1')->find_many();
@@ -281,6 +285,18 @@ switch ($action) {
         $ui->display('voucher-add.tpl');
         break;
 
+    case 'remove-voucher':
+        $d = ORM::for_table('tbl_voucher')->where_equal('status', '1')->findMany();
+        if ($d) {
+            $jml = 0;
+            foreach ($d as $v) {
+                if(!ORM::for_table('tbl_user_recharges')->where_equal("method",'Voucher - '.$v['code'])->findOne()){
+                    $v->delete();
+                    $jml++;
+                }
+            }
+            r2(U . 'prepaid/voucher', 's', "$jml ".$_L['Delete_Successfully']);
+        }
     case 'print-voucher':
         $from_id = _post('from_id');
         $planid = _post('planid');
@@ -383,6 +399,8 @@ switch ($action) {
     case 'voucher-post':
         $type = _post('type');
         $plan = _post('plan');
+        $voucher_format = _post('voucher_format');
+        $prefix = _post('prefix');
         $server = _post('server');
         $numbervoucher = _post('numbervoucher');
         $lengthcode = _post('lengthcode');
@@ -398,19 +416,31 @@ switch ($action) {
             $msg .= 'The Length Code must be a number' . '<br>';
         }
         if ($msg == '') {
+            if(!empty($prefix)){
+                $d = ORM::for_table('tbl_appconfig')->where('setting', 'voucher_prefix')->find_one();
+                if ($d) {
+                    $d->value = $prefix;
+                    $d->save();
+                } else {
+                    $d = ORM::for_table('tbl_appconfig')->create();
+                    $d->setting = 'voucher_prefix';
+                    $d->value = $prefix;
+                    $d->save();
+                }
+            }
             run_hook('create_voucher'); #HOOK
             for ($i = 0; $i < $numbervoucher; $i++) {
                 $code = strtoupper(substr(md5(time() . rand(10000, 99999)), 0, $lengthcode));
-                if ($config['voucher_format'] == 'low') {
+                if ($voucher_format == 'low') {
                     $code = strtolower($code);
-                } else if ($config['voucher_format'] == 'rand') {
+                } else if ($voucher_format == 'rand') {
                     $code = Lang::randomUpLowCase($code);
                 }
                 $d = ORM::for_table('tbl_voucher')->create();
                 $d->type = $type;
                 $d->routers = $server;
                 $d->id_plan = $plan;
-                $d->code = $code;
+                $d->code = $prefix.$code;
                 $d->user = '0';
                 $d->status = '0';
                 $d->save();
@@ -447,7 +477,7 @@ switch ($action) {
 
         run_hook('refill_customer'); #HOOK
         if ($v1) {
-            if (Package::rechargeUser($user['id'], $v1['routers'], $v1['id_plan'], "Refill", "Voucher")) {
+            if (Package::rechargeUser($user['id'], $v1['routers'], $v1['id_plan'], "Voucher", $code)) {
                 $v1->status = "1";
                 $v1->user = $user['username'];
                 $v1->save();

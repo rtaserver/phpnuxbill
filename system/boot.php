@@ -108,6 +108,21 @@ try {
         ORM::configure('driver_options', array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'), 'radius');
         ORM::configure('return_result_sets', true, 'radius');
     }
+} catch (Throwable $e) {
+    $ui = new Smarty();
+    $ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'default' => File::pathFixer('ui/ui/')]);
+    $ui->assign('_url', APP_URL . '/index.php?_route=');
+    $ui->setCompileDir(File::pathFixer('ui/compiled/'));
+    $ui->setConfigDir(File::pathFixer('ui/conf/'));
+    $ui->setCacheDir(File::pathFixer('ui/cache/'));
+    $ui->assign("error_title", "PHPNuxBill Crash");
+    if (isset($_SESSION['uid'])) {
+        $ui->assign("error_message", $e->getMessage() . '<br>');
+    } else {
+        $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
+    }
+    $ui->display('router-error.tpl');
+    die();
 } catch (Exception $e) {
     $ui = new Smarty();
     $ui->setTemplateDir(['custom' => File::pathFixer('ui/ui_custom/'), 'default' => File::pathFixer('ui/ui/')]);
@@ -118,7 +133,7 @@ try {
     $ui->assign("error_title", "PHPNuxBill Crash");
     if (isset($_SESSION['uid'])) {
         $ui->assign("error_message", $e->getMessage() . '<br>');
-    }else{
+    } else {
         $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
     }
     $ui->display('router-error.tpl');
@@ -130,13 +145,13 @@ function _notify($msg, $type = 'e')
     $_SESSION['ntype'] = $type;
     $_SESSION['notify'] = $msg;
 }
-if(empty($config['language'])){
+if (empty($config['language'])) {
     $config['language'] = 'english';
 }
 $lan_file = File::pathFixer('system/lan/' . $config['language'] . '/common.lan.php');
-if(file_exists($lan_file)){
+if (file_exists($lan_file)) {
     require $lan_file;
-}else{
+} else {
     die("$lan_file not found");
 }
 
@@ -190,7 +205,11 @@ $_notifmsg_default = json_decode(file_get_contents(File::pathFixer('system/uploa
 
 //register all plugin
 foreach (glob(File::pathFixer("system/plugin/*.php")) as $filename) {
-    include $filename;
+    try {
+        include $filename;
+    } catch (Throwable $e) {
+    } catch (Exception $e) {
+    }
 }
 
 
@@ -299,7 +318,8 @@ function time_elapsed_string($datetime, $full = false)
         }
     }
 
-    if (!$full) $string = array_slice($string, 0, 1);
+    if (!$full)
+        $string = array_slice($string, 0, 1);
     return $string ? implode(', ', $string) . ' ago' : 'just now';
 }
 
@@ -312,7 +332,6 @@ if ($handler == '') {
     $handler = 'default';
 }
 try {
-
     $sys_render = File::pathFixer('system/controllers/' . $handler . '.php');
     if (file_exists($sys_render)) {
         $menus = array();
@@ -327,11 +346,19 @@ try {
                 if (!empty($menu['icon'])) {
                     $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
                 }
+                if (!empty($menu['label'])) {
+                    $menus[$menu['position']] .= '<span class="pull-right-container">';
+                    $menus[$menu['position']] .= '<small class="label pull-right bg-' . $menu['color'] . '">' . $menu['label'] . '</small></span>';
+                }
                 $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
             } else if (!$menu['admin'] && _auth(false)) {
                 $menus[$menu['position']] .= '<li' . (($routes[1] == $menu['function']) ? ' class="active"' : '') . '><a href="' . U . 'plugin/' . $menu['function'] . '">';
                 if (!empty($menu['icon'])) {
                     $menus[$menu['position']] .= '<i class="' . $menu['icon'] . '"></i>';
+                }
+                if (!empty($menu['label'])) {
+                    $menus[$menu['position']] .= '<span class="pull-right-container">';
+                    $menus[$menu['position']] .= '<small class="label pull-right bg-' . $menu['color'] . '">' . $menu['label'] . '</small></span>';
                 }
                 $menus[$menu['position']] .= '<span class="text">' . $menu['name'] . '</span></a></li>';
             }
@@ -344,9 +371,17 @@ try {
     } else {
         r2(U . 'dashboard', 'e', 'not found');
     }
+} catch (Throwable $e) {
+    if (!isset($_SESSION['aid']) || empty($_SESSION['aid'])) {
+        r2(U . 'home', 'e', $e->getMessage());
+    }
+    $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
+    $ui->assign("error_title", "PHPNuxBill Crash");
+    $ui->display('router-error.tpl');
+    die();
 } catch (Exception $e) {
-    if (isset($_SESSION['uid'])) {
-        r2(U . 'home' , 'e', $e->getMessage());
+    if (!isset($_SESSION['aid']) || empty($_SESSION['aid'])) {
+        r2(U . 'home', 'e', $e->getMessage());
     }
     $ui->assign("error_message", $e->getMessage() . '<br><pre>' . $e->getTraceAsString() . '</pre>');
     $ui->assign("error_title", "PHPNuxBill Crash");

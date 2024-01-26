@@ -15,7 +15,7 @@
                     <div class="form-group">
                         <label class="col-md-2 control-label">{$_L['App_Name']}</label>
                         <div class="col-md-6">
-                            <input type="text" required class="form-control" id="company" name="company"
+                            <input type="text" required class="form-control" id="CompanyName" name="CompanyName"
                                 value="{$_c['CompanyName']}">
                         </div>
                         <span class="help-block col-md-4">{$_L['App_Name_Help_Text']}</span>
@@ -34,7 +34,7 @@
                     <div class="form-group">
                         <label class="col-md-2 control-label">{Lang::T('Company Footer')}</label>
                         <div class="col-md-6">
-                            <input type="text" required class="form-control" id="footer" name="footer"
+                            <input type="text" required class="form-control" id="CompanyFooter" name="CompanyFooter"
                                 value="{$_c['CompanyFooter']}">
                         </div>
                         <span class="help-block col-md-4">{Lang::T('Will show below user pages')}</span>
@@ -52,6 +52,15 @@
                         <div class="col-md-6">
                             <input type="text" class="form-control" id="phone" name="phone" value="{$_c['phone']}">
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2 control-label"><i class="glyphicon glyphicon-print"></i> Print Max
+                            Char</label>
+                        <div class="col-md-6">
+                            <input type="number" required class="form-control" id="printer_cols" placeholder="37"
+                                name="printer_cols" value="{$_c['printer_cols']}">
+                        </div>
+                        <span class="help-block col-md-4">For invoice print using Thermal Printer</span>
                     </div>
                     <div class="form-group">
                         <label class="col-md-2 control-label">Theme</label>
@@ -113,6 +122,33 @@
                         </div>
                         <p class="help-block col-md-4">UPPERCASE lowercase RaNdoM</p>
                     </div>
+                    {if $_c['disable_voucher'] != 'yes'}
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">{Lang::T('Disable Registration')}</label>
+                            <div class="col-md-6">
+                                <select name="disable_registration" id="disable_registration" class="form-control">
+                                    <option value="no" {if $_c['disable_registration'] == 'no'}selected="selected" {/if}>No
+                                    </option>
+                                    <option value="yes" {if $_c['disable_registration'] == 'yes'}selected="selected" {/if}>
+                                        Yes
+                                    </option>
+                                </select>
+                            </div>
+                            <p class="help-block col-md-4">
+                                {Lang::T('Customer just Login with Phone number and Voucher Code, Voucher will be password')}
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-md-2 control-label">Redirect after Activation</label>
+                            <div class="col-md-6">
+                                <input type="text" class="form-control" id="voucher_redirect" name="voucher_redirect"
+                                    placeholder="https://192.168.88.1/status" value="{$voucher_redirect}">
+                            </div>
+                            <p class="help-block col-md-4">
+                                {Lang::T('After Customer activate voucher or login, customer will be redirected to this url')}
+                            </p>
+                        </div>
+                    {/if}
                 </div>
                 <div class="panel-heading">
                     <div class="btn-group pull-right">
@@ -183,6 +219,7 @@
                 </div>
                 <div class="panel-heading">
                     <div class="btn-group pull-right">
+                        <a class="btn btn-success btn-xs" style="color: black;" href="javascript:testTg()">Test TG</a>
                         <button class="btn btn-primary btn-xs" title="save" type="submit"><span
                                 class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span></button>
                     </div>
@@ -198,7 +235,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="col-md-2 control-label">Telegram Target ID</label>
+                        <label class="col-md-2 control-label">Telegram User/Channel/Group ID</label>
                         <div class="col-md-6">
                             <input type="text" class="form-control" id="telegram_target_id" name="telegram_target_id"
                                 value="{$_c['telegram_target_id']}" placeholder="12345678">
@@ -209,6 +246,7 @@
                 </div>
                 <div class="panel-heading">
                     <div class="btn-group pull-right">
+                        <a class="btn btn-success btn-xs" style="color: black;" href="javascript:testSms()">Test SMS</a>
                         <button class="btn btn-primary btn-xs" title="save" type="submit"><span
                                 class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span></button>
                     </div>
@@ -225,11 +263,28 @@
                             replaced.
                         </p>
                     </div>
+                    <div class="form-group">
+                        <label class="col-md-2 control-label">Or use Mikrotik SMS</label>
+                        <div class="col-md-6">
+                            <select class="form-control"
+                                onchange="document.getElementById('sms_url').value = this.value">
+                                <option value="">Select Router</option>
+                                {foreach $r as $rs}
+                                    <option value="{$rs['name']}" {if $rs['name']==$_c['sms_url']}selected{/if}>
+                                        {$rs['name']}</option>
+                                {/foreach}
+                            </select>
+                        </div>
+                        <p class="help-block col-md-4">Must include <b>[text]</b> &amp; <b>[number]</b>, it will be
+                            replaced.
+                        </p>
+                    </div>
                     <small id="emailHelp" class="form-text text-muted">You can use WhatsApp in here too. <a
                             href="https://wa.nux.my.id/login" target="_blank">Free Server</a></small>
                 </div>
                 <div class="panel-heading">
                     <div class="btn-group pull-right">
+                        <a class="btn btn-success btn-xs" style="color: black;" href="javascript:testWa()">Test WA</a>
                         <button class="btn btn-primary btn-xs" title="save" type="submit"><span
                                 class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span></button>
                     </div>
@@ -362,6 +417,34 @@
                         </div>
                     </div>
                 </div>
+                <div class="panel-heading" id="envato">
+                    <div class="btn-group pull-right">
+                        <button class="btn btn-primary btn-xs" title="save" type="submit"><span
+                                class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span></button>
+                    </div>
+                    Envato / Codecanyon
+                </div>
+                <div class="panel-body">
+                    <div class="form-group">
+                        <label class="col-md-2 control-label">Envato Personal Token</label>
+                        <div class="col-md-6">
+                            <input type="password" class="form-control" id="envato_token" name="envato_token"
+                                value="{$_c['envato_token']}" placeholder="BldWuBsxxxxxxxxxxxPDzPozHAPui">
+                        </div>
+                        <span class="help-block col-md-4"><a href="https://build.envato.com/create-token/"
+                                target="_blank">Create Token</a></span>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label col-md-offset-2 col-md-8" style="text-align: left;">Envato
+                            Permission<br>
+                            - View and search Envato sites<br>
+                            - Download the user's purchased items<br>
+                            - List purchases the user has made<br><br>
+                            <a href="https://codecanyon.net/category/php-scripts?term=phpnuxbill" target="_blank"
+                                class="btn btn-xs btn-primary">View MarketPlace</a>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <div class="panel-body">
@@ -389,4 +472,23 @@ add dst-host=*.{$_domain}</pre>
         </div>
     </div>
 </form>
+<script>
+    function testWa() {
+        var target = prompt("Phone number\nSave First before Test", "");
+        if (target != null) {
+            window.location.href = '{$_url}settings/app&testWa='+target;
+        }
+    }
+
+    function testSms() {
+        var target = prompt("Phone number\nSave First before Test", "");
+        if (target != null) {
+            window.location.href = '{$_url}settings/app&testSms='+target;
+        }
+    }
+
+    function testTg() {
+        window.location.href = '{$_url}settings/app&testTg=test';
+    }
+</script>
 {include file="sections/footer.tpl"}

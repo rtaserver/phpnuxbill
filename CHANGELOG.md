@@ -2,6 +2,70 @@
 
 # CHANGELOG
 
+## 2024.1.24
+
+- Add Send test for SMS, Whatsapp and Telegram
+
+## 2024.1.19
+
+- Paid Plugin, Theme, and payment gateway marketplace using codecanyon.net
+- Fix Plugin manager List
+
+## 2024.1.18
+
+- fix(mikrotik): set pool $poolId always empty
+
+## 2024.1.17
+
+- Add minor change, for plugin, menu can have notifications by @Focuslinkstech
+
+## 2024.1.16
+
+- Add yellow color to table for plan not allowed to purchase
+- Fix Radius pool select
+- add price to reminder notification
+- Support thermal printer for invoice
+
+## 2024.1.15
+
+- Fix cron job for Plan only for admin by @Focuslinkstech
+
+## 2024.1.11
+
+- Add Plan only for admin by @Focuslinkstech
+- Fix Plugin Manager
+
+## 2024.1.9
+
+- Add Prefix when generate Voucher
+
+## 2024.1.8
+
+- User Expired Order by Expired Date
+
+## 2024.1.2
+
+- Pagination User Expired by @Focuslinkstech
+
+## 2023.12.21
+
+- Modern AdminLTE by @sabtech254
+- Update user-dashboard.tpl by @Focuslinkstech
+
+## 2023.12.19
+
+- Fix Search Customer
+- Disable Registration, Customer just activate voucher Code, and the voucher will be their password
+- Remove all used voucher codes
+
+## 2023.12.18
+
+- Split sms to 160 characters only for Mikrotik Modem
+
+## 2023.12.14
+
+- Can send SMS using Mikrotik with Modem Installed
+- Add Customer Type, so Customer can only show their PPPOE or Hotspot Package or both
 
 ## 2023.11.17
 

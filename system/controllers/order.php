@@ -37,7 +37,7 @@ switch ($action) {
             }
             $ui->assign('_title', 'Top Up');
             $ui->assign('_system_menu', 'balance');
-            $plans_balance = ORM::for_table('tbl_plans')->where('enabled', '1')->where('type', 'Balance')->find_many();
+            $plans_balance = ORM::for_table('tbl_plans')->where('enabled', '1')->where('type', 'Balance')->where('allow_purchase', 'yes')->find_many();
             $ui->assign('plans_balance', $plans_balance);
             $ui->display('user-orderBalance.tpl');
             break;
@@ -49,24 +49,24 @@ switch ($action) {
             $ui->assign('_system_menu', 'package');
             if (!empty($_SESSION['nux-router'])) {
                 if ($_SESSION['nux-router'] == 'radius') {
-                    $radius_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'PPPOE')->find_many();
-                    $radius_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'Hotspot')->find_many();
+                    $radius_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'PPPOE')->where('allow_purchase', 'yes')->find_many();
+                    $radius_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'Hotspot')->where('allow_purchase', 'yes')->find_many();
                 } else {
                     $routers = ORM::for_table('tbl_routers')->where('id', $_SESSION['nux-router'])->find_many();
                     $rs = [];
                     foreach ($routers as $r) {
                         $rs[] = $r['name'];
                     }
-                    $plans_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where_in('routers', $rs)->where('is_radius', 0)->where('type', 'PPPOE')->find_many();
-                    $plans_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where_in('routers', $rs)->where('is_radius', 0)->where('type', 'Hotspot')->find_many();
+                    $plans_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where_in('routers', $rs)->where('is_radius', 0)->where('type', 'PPPOE')->where('allow_purchase', 'yes')->find_many();
+                    $plans_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where_in('routers', $rs)->where('is_radius', 0)->where('type', 'Hotspot')->where('allow_purchase', 'yes')->find_many();
                 }
             } else {
-                $radius_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'PPPOE')->find_many();
-                $radius_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'Hotspot')->find_many();
+                $radius_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'PPPOE')->where('allow_purchase', 'yes')->find_many();
+                $radius_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 1)->where('type', 'Hotspot')->where('allow_purchase', 'yes')->find_many();
 
                 $routers = ORM::for_table('tbl_routers')->find_many();
-                $plans_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 0)->where('type', 'PPPOE')->find_many();
-                $plans_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 0)->where('type', 'Hotspot')->find_many();
+                $plans_pppoe = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 0)->where('type', 'PPPOE')->where('allow_purchase', 'yes')->find_many();
+                $plans_hotspot = ORM::for_table('tbl_plans')->where('enabled', '1')->where('is_radius', 0)->where('type', 'Hotspot')->where('allow_purchase', 'yes')->find_many();
             }
             $ui->assign('routers', $routers);
             $ui->assign('radius_pppoe', $radius_pppoe);
@@ -149,6 +149,12 @@ switch ($action) {
         if (empty($plan)) {
             r2(U . "order/package", 'e', Lang::T("Plan Not found"));
         }
+        if(!$plan['enabled']){
+            r2(U . "home", 'e', 'Plan is not exists');
+        }
+        if($plan['allow_purchase'] != 'yes'){
+            r2(U . "home", 'e', 'Cannot recharge this plan');
+        }
         if ($routes['2'] == 'radius') {
             $router_name = 'radius';
         } else {
@@ -166,7 +172,7 @@ switch ($action) {
                     "\nPrice: " . $p['price']);
             }
         } else {
-            echo "no renewall | plan enabled: $p[enabled] | User balance: $c[balance] | price $p[price]\n";
+            r2(U . "home", 'e', 'Plan is not exists');
         }
         break;
     case 'send':
@@ -178,6 +184,12 @@ switch ($action) {
         $plan = ORM::for_table('tbl_plans')->find_one($routes['3']);
         if (empty($plan)) {
             r2(U . "order/package", 'e', Lang::T("Plan Not found"));
+        }
+        if(!$plan['enabled']){
+            r2(U . "home", 'e', 'Plan is not exists');
+        }
+        if($plan['allow_purchase'] != 'yes'){
+            r2(U . "home", 'e', 'Cannot recharge this plan');
         }
         if ($routes['2'] == 'radius') {
             $router_name = 'radius';
@@ -277,7 +289,7 @@ switch ($action) {
             $router['id'] = 0;
             $router['name'] = 'balance';
         }
-        $plan = ORM::for_table('tbl_plans')->where('enabled', '1')->find_one($routes['3']);
+        $plan = ORM::for_table('tbl_plans')->where('enabled', '1')->where('allow_purchase', 'yes')->find_one($routes['3']);
         if (empty($router) || empty($plan)) {
             r2(U . "order/package", 'e', Lang::T("Plan Not found"));
         }

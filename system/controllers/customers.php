@@ -28,13 +28,15 @@ switch ($action) {
                 'username' => '%' . $search . '%',
                 'fullname' => '%' . $search . '%',
                 'phonenumber' => '%' . $search . '%',
-                'email' => '%' . $search . '%'
+                'email' => '%' . $search . '%',
+                'service_type' => '%' . $search . '%'
             ], $search);
             $d = ORM::for_table('tbl_customers')
-                ->where_raw("(`username` LIKE '%$search%' OR `fullname` LIKE '%$search%' OR `phonenumber` LIKE '%$search%' OR `email` LIKE '%$search%')", [$search, $search, $search, $search])
+                ->where_raw("(`username` LIKE '%$search%' OR `fullname` LIKE '%$search%' OR `phonenumber` LIKE '%$search%' OR `email` LIKE '%$search%')")
                 ->offset($paginator['startpoint'])
                 ->limit($paginator['limit'])
-                ->order_by_desc('id')->find_many();
+                ->order_by_asc('username')
+                ->find_many();
         } else {
             $paginator = Paginator::build(ORM::for_table('tbl_customers'));
             $d = ORM::for_table('tbl_customers')
@@ -227,6 +229,7 @@ switch ($action) {
         $email = _post('email');
         $address = _post('address');
         $phonenumber = _post('phonenumber');
+        $service_type = _post('service_type');
         run_hook('add_customer'); #HOOK
         $msg = '';
         if (Validator::Length($username, 35, 2) == false) {
@@ -253,6 +256,7 @@ switch ($action) {
             $d->fullname = $fullname;
             $d->address = $address;
             $d->phonenumber = Lang::phoneFormat($phonenumber);
+            $d->service_type = $service_type;
             $d->save();
             r2(U . 'customers/list', 's', $_L['account_created_successfully']);
         } else {
@@ -268,6 +272,7 @@ switch ($action) {
         $email = _post('email');
         $address = _post('address');
         $phonenumber = Lang::phoneFormat(_post('phonenumber'));
+        $service_type = _post('service_type');
         run_hook('edit_customer'); #HOOK
         $msg = '';
         if (Validator::Length($username, 16, 2) == false) {
@@ -320,6 +325,7 @@ switch ($action) {
             $d->email = $email;
             $d->address = $address;
             $d->phonenumber = $phonenumber;
+            $d->service_type = $service_type;
             $d->save();
             if ($userDiff || $pppoeDiff || $passDiff) {
                 $c = ORM::for_table('tbl_user_recharges')->where('username', ($userDiff) ? $oldusername : $username)->find_one();
